@@ -1,0 +1,43 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template to create IAM Role for AI Profiling & Routing Platform Bedrock integration'
+
+Parameters:
+  ExternalId:
+    Type: String
+    Description: 'User External ID (Supabase Auth UUID) required for IAM Role assumption security'
+  TrustedAccountId:
+    Type: String
+    Default: '108839616732'
+    Description: 'The AWS Account ID of the AI Routing Platform server'
+
+Resources:
+  BedrockAccessRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub 'AIRoutingBedrockRole-${ExternalId}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${TrustedAccountId}:root'
+            Action: 'sts:AssumeRole'
+            Condition:
+              StringEquals:
+                'sts:ExternalId': !Ref ExternalId
+      Policies:
+        - PolicyName: BedrockAccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'bedrock:ListFoundationModels'
+                  - 'bedrock:InvokeModel'
+                  - 'bedrock:InvokeModelWithResponseStream'
+                Resource: '*'
+
+Outputs:
+  RoleArn:
+    Description: 'The ARN of the created IAM Role. Copy and paste this back into the AI Routing Platform Connections page.'
+    Value: !GetAtt BedrockAccessRole.Arn

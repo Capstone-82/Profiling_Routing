@@ -8,6 +8,7 @@ interface AuthContextValue {
   isDemo: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<{ requiresConfirmation: boolean }>;
+  loginAsDemo: (email?: string) => void;
   signOut: () => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
@@ -45,8 +46,8 @@ function mapAuthError(error: any): Error {
   if (msg.includes('User already registered')) {
     return new Error('An account with this email already exists.');
   }
-  if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
-    return new Error('Unable to connect. Please check your connection and try again.');
+  if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('getaddrinfo')) {
+    return new Error('Unable to connect to Supabase server. Check your Supabase URL in .env or click "Continue in Demo Mode" below.');
   }
   return new Error(msg || 'Something went wrong. Please try again.');
 }
@@ -85,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setUser({ id: session.user.id, email: session.user.email!, createdAt: session.user.created_at });
         setIsDemo(false);
@@ -168,8 +169,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw mapAuthError(error);
   }, []);
 
+  const loginAsDemo = useCallback((email: string = 'demo@corestack.io') => {
+    const u = makeDemoUser(email);
+    localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(u));
+    setUser(u);
+    setIsDemo(true);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, isDemo, signIn, signUp, signOut, forgotPassword, updatePassword }}>
+    <AuthContext.Provider value={{ user, loading, isDemo, signIn, signUp, loginAsDemo, signOut, forgotPassword, updatePassword }}>
       {children}
     </AuthContext.Provider>
   );

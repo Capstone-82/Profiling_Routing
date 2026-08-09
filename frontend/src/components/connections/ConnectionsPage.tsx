@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { AppHeader } from '../layout/AppHeader';
 import type { Connection, Model } from '../../types';
 import { getConnection, testConnection as testConn, resetConnection } from '../../services/mock/mockService';
-import { ExternalLink, Copy, Check, AlertCircle, Lock, ChevronRight } from 'lucide-react';
+import { ExternalLink, Copy, Check, AlertCircle } from 'lucide-react';
 
 // ─── Context plumbing ─────────────────────────────────────────────────────────
 const ConnCtx = React.createContext<{
@@ -19,11 +18,12 @@ function useConn() {
 }
 
 function useConnectionState() {
+  const { user } = useAuth();
   const [connection, setConnection] = useState<Connection>({ provider: 'aws-bedrock', status: 'not_connected' });
   const [initialLoading, setInitialLoading] = useState(true);
   useEffect(() => {
-    getConnection().then(c => { setConnection(c); setInitialLoading(false); });
-  }, []);
+    getConnection(user?.id).then(c => { setConnection(c); setInitialLoading(false); });
+  }, [user?.id]);
   return { connection, setConnection, initialLoading };
 }
 
@@ -92,7 +92,6 @@ function BedrockCard() {
   const [testing, setTesting] = useState(false);
   const [copied, setCopied] = useState(false);
   const externalId = user?.id || '—';
-  const cfUrl = `https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/quickcreate?param_ExternalId=${externalId}`;
 
   useEffect(() => {
     if (connection.roleArn && !roleArn) setRoleArn(connection.roleArn);
@@ -108,7 +107,7 @@ function BedrockCard() {
     setTesting(true);
     // Show pending immediately
     setConnection(prev => ({ ...prev, status: 'pending' }));
-    const result = await testConn(roleArn);
+    const result = await testConn(roleArn, externalId);
     setConnection(result);
     setTesting(false);
   };
@@ -181,15 +180,70 @@ function BedrockCard() {
         <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--cs-navy)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
           Step 1 — Deploy CloudFormation Stack
         </p>
-        <a
-          href={cfUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="cs-btn cs-btn-primary"
-          style={{ width: '100%', textDecoration: 'none' }}
-        >
-          Connect AWS Bedrock <ExternalLink size={13} />
-        </a>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <a
+            href={`data:text/yaml;charset=utf-8,${encodeURIComponent(`AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template to create IAM Role for AI Profiling & Routing Platform Bedrock integration'
+
+Parameters:
+  ExternalId:
+    Type: String
+    Description: 'User External ID (Supabase Auth UUID) required for IAM Role assumption security'
+  TrustedAccountId:
+    Type: String
+    Default: '108839616732'
+    Description: 'The AWS Account ID of the AI Routing Platform server'
+
+Resources:
+  BedrockAccessRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub 'AIRoutingBedrockRole-\${ExternalId}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::\${TrustedAccountId}:root'
+            Action: 'sts:AssumeRole'
+            Condition:
+              StringEquals:
+                'sts:ExternalId': !Ref ExternalId
+      Policies:
+        - PolicyName: BedrockAccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'bedrock:ListFoundationModels'
+                  - 'bedrock:InvokeModel'
+                  - 'bedrock:InvokeModelWithResponseStream'
+                Resource: '*'
+
+Outputs:
+  RoleArn:
+    Description: 'The ARN of the created IAM Role. Copy and paste this back into the AI Routing Platform Connections page.'
+    Value: !GetAtt BedrockAccessRole.Arn`)}`}
+            download="bedrock-role-template.yaml"
+            className="cs-btn"
+            style={{ width: '100%', textDecoration: 'none', justifyContent: 'center', background: 'var(--cs-bg-subtle)', border: '1px solid var(--cs-border)', color: 'var(--cs-navy)', fontSize: '12px' }}
+          >
+            1. Download Template (.yaml)
+          </a>
+          <a
+            href={`https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/create/template`}
+            target="_blank"
+            rel="noreferrer"
+            className="cs-btn cs-btn-primary"
+            style={{ width: '100%', textDecoration: 'none', justifyContent: 'center' }}
+          >
+            2. Open AWS CloudFormation Console <ExternalLink size={13} />
+          </a>
+        </div>
+        <p style={{ fontSize: '11px', color: 'var(--cs-subtle)', marginTop: '6px', lineHeight: 1.4 }}>
+          Upload the downloaded <code style={{ fontSize: '10px' }}>bedrock-role-template.yaml</code> file into CloudFormation, paste your External ID above when prompted, and create the stack.
+        </p>
       </div>
 
       {/* Step 2 */}
@@ -314,9 +368,7 @@ function ComingSoonCard({ abbrev, name, provider, iconBg, iconBorder, iconColor,
 
 // ─── Connections Page ─────────────────────────────────────────────────────────
 export function ConnectionsPage() {
-  const navigate = useNavigate();
   const { connection, setConnection, initialLoading } = useConnectionState();
-  const isVerified = connection.status === 'verified';
 
   return (
     <ConnCtx.Provider value={{ connection, setConnection }}>

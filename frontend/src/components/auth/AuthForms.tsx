@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { CheckCircle2, AlertCircle, Eye, EyeOff, Check } from 'lucide-react';
@@ -160,7 +160,7 @@ function FormField({ id, label, type = 'text', value, onChange, onBlur, error, p
 // ─── Login Form ───────────────────────────────────────────────────────────────
 
 export function LoginForm() {
-  const { signIn } = useAuth();
+  const { signIn, loginAsDemo } = useAuth();
   const navigate = useNavigate();
   
   const [email, setEmail] = useState('');
@@ -192,6 +192,11 @@ export function LoginForm() {
       setServerError(err.message);
       setLoading(false);
     }
+  };
+
+  const handleDemoClick = () => {
+    loginAsDemo(email || 'demo@corestack.io');
+    navigate('/connections');
   };
 
   return (
@@ -237,14 +242,25 @@ export function LoginForm() {
 
         {serverError && <AlertBox type="error">{serverError}</AlertBox>}
 
-        <button
-          type="submit"
-          disabled={!isValid || loading}
-          className={`cs-btn cs-btn-primary ${loading ? 'is-loading' : ''}`}
-          style={{ width: '100%', height: '44px', fontSize: '15px', marginTop: '8px' }}
-        >
-          {loading ? <><div className="cs-spinner" style={{ width: '16px', height: '16px' }} /> Signing in…</> : 'Sign In'}
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
+          <button
+            type="submit"
+            disabled={!isValid || loading}
+            className={`cs-btn cs-btn-primary ${loading ? 'is-loading' : ''}`}
+            style={{ width: '100%', height: '44px', fontSize: '15px' }}
+          >
+            {loading ? <><div className="cs-spinner" style={{ width: '16px', height: '16px' }} /> Signing in…</> : 'Sign In'}
+          </button>
+          
+          <button
+            type="button"
+            onClick={handleDemoClick}
+            className="cs-btn"
+            style={{ width: '100%', height: '40px', fontSize: '13px', background: 'var(--cs-bg-subtle)', border: '1px solid var(--cs-border)', color: 'var(--cs-navy)', justifyContent: 'center' }}
+          >
+            ⚡ Continue in Demo Mode (Skip Auth)
+          </button>
+        </div>
       </form>
 
       <p style={{ textAlign: 'center', marginTop: '24px', fontSize: '14px', color: 'var(--cs-muted)' }}>
@@ -257,7 +273,7 @@ export function LoginForm() {
 // ─── Signup Form ──────────────────────────────────────────────────────────────
 
 export function SignupForm() {
-  const { signUp } = useAuth();
+  const { signUp, loginAsDemo } = useAuth();
   const navigate = useNavigate();
   
   const [email, setEmail] = useState('');
@@ -302,6 +318,11 @@ export function SignupForm() {
       setServerError(err.message);
       setLoading(false);
     }
+  };
+
+  const handleDemoClick = () => {
+    loginAsDemo(email || 'musharraf@corestack.io');
+    navigate('/connections');
   };
 
   if (successState) {
@@ -392,14 +413,25 @@ export function SignupForm() {
 
         {serverError && <AlertBox type="error">{serverError}</AlertBox>}
 
-        <button
-          type="submit"
-          disabled={!isValid || loading}
-          className={`cs-btn cs-btn-primary ${loading ? 'is-loading' : ''}`}
-          style={{ width: '100%', height: '44px', fontSize: '15px', marginTop: '8px' }}
-        >
-          {loading ? <><div className="cs-spinner" style={{ width: '16px', height: '16px' }} /> Creating account…</> : 'Create account'}
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
+          <button
+            type="submit"
+            disabled={!isValid || loading}
+            className={`cs-btn cs-btn-primary ${loading ? 'is-loading' : ''}`}
+            style={{ width: '100%', height: '44px', fontSize: '15px' }}
+          >
+            {loading ? <><div className="cs-spinner" style={{ width: '16px', height: '16px' }} /> Creating account…</> : 'Create account'}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDemoClick}
+            className="cs-btn"
+            style={{ width: '100%', height: '40px', fontSize: '13px', background: 'var(--cs-bg-subtle)', border: '1px solid var(--cs-border)', color: 'var(--cs-navy)', justifyContent: 'center' }}
+          >
+            ⚡ Continue in Demo Mode (Skip Auth)
+          </button>
+        </div>
       </form>
 
       <p style={{ textAlign: 'center', marginTop: '24px', fontSize: '14px', color: 'var(--cs-muted)' }}>

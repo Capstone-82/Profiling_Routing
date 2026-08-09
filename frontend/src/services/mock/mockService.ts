@@ -1,4 +1,5 @@
 import type { Model, Connection, ModelResponse, PromptRequest } from '../../types';
+import { fetchConnectionFromBackend, testConnectionViaBackend, resetConnectionViaBackend } from '../apiService';
 
 // ─── Mock Models ─────────────────────────────────────────────────────────────
 // These represent the allow-listed models returned by the connected provider.
@@ -46,10 +47,15 @@ export const MOCK_AVAILABLE_MODELS: Model[] = [
   },
 ];
 
-// ─── Mock Connection Service ──────────────────────────────────────────────────
-// Task 2 will replace these with real AWS IAM + STS calls.
+// ─── Connection Service (FastAPI + Local Fallback) ────────────────────────────
 
-export async function getConnection(): Promise<Connection> {
+export async function getConnection(userId?: string): Promise<Connection> {
+  // Try backend endpoint first
+  const backendConn = await fetchConnectionFromBackend(userId);
+  if (backendConn && backendConn.status !== 'not_connected') {
+    return backendConn;
+  }
+
   // Load persisted connection from localStorage
   const saved = localStorage.getItem('cs_bedrock_connection');
   if (saved) {
@@ -59,8 +65,15 @@ export async function getConnection(): Promise<Connection> {
   return { provider: 'aws-bedrock', status: 'not_connected' };
 }
 
-export async function testConnection(roleArn: string): Promise<Connection> {
-  // Validate ARN format
+export async function testConnection(roleArn: string, userId?: string): Promise<Connection> {
+  // Try backend endpoint first
+  const backendResult = await testConnectionViaBackend(roleArn, userId);
+  if (backendResult) {
+    localStorage.setItem('cs_bedrock_connection', JSON.stringify(backendResult));
+    return backendResult;
+  }
+
+  // Fallback to client-side validation/mocking if backend server is not running
   if (!roleArn.trim().startsWith('arn:aws:iam::')) {
     const conn: Connection = {
       provider: 'aws-bedrock',
@@ -104,6 +117,7 @@ export async function getAvailableModels(): Promise<Model[]> {
 }
 
 export function resetConnection(): void {
+  resetConnectionViaBackend().catch(() => {});
   localStorage.removeItem('cs_bedrock_connection');
 }
 
