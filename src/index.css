@@ -1,0 +1,374 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap');
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════
+   CORESTACK AI GOVERNANCE OS — DESIGN SYSTEM
+   Derived by careful inspection of corestack.io
+   ═══════════════════════════════════════════════════════════════ */
+@layer base {
+  :root {
+    /* ── Core palette ── */
+    --cs-blue:          #0062FF;   /* CoreStack primary blue */
+    --cs-blue-dark:     #1A56DB;   /* hover/pressed */
+    --cs-blue-light:    #EFF6FF;   /* tint/highlight */
+    --cs-blue-muted:    #BFDBFE;   /* borders on blue bg */
+    --cs-navy:          #0F172A;   /* primary heading text */
+    --cs-navy-mid:      #1E293B;   /* sub-heading */
+    --cs-text:          #475569;   /* body text */
+    --cs-muted:         #64748B;   /* secondary / helper text */
+    --cs-subtle:        #94A3B8;   /* placeholder, icons */
+
+    /* ── Surfaces ── */
+    --cs-bg:            #FFFFFF;
+    --cs-bg-page:       #F8FAFC;   /* very light slate bg */
+    --cs-bg-subtle:     #F1F5F9;
+    --cs-card:          #FFFFFF;
+
+    /* ── Borders ── */
+    --cs-border:        #D5E2EE;
+    --cs-border-light:  #E8EFF7;
+
+    /* ── Semantic ── */
+    --cs-success:       #1A7F4B;
+    --cs-success-bg:    #EDF8F2;
+    --cs-success-border:#A8DFC0;
+
+    --cs-warning:       #B45309;
+    --cs-warning-bg:    #FFFBEB;
+    --cs-warning-border:#FCD34D;
+
+    --cs-error:         #B91C1C;
+    --cs-error-bg:      #FEF2F2;
+    --cs-error-border:  #FCA5A5;
+
+    /* ── Geometry ── */
+    --cs-radius-sm:   4px;
+    --cs-radius-md:   8px;
+    --cs-radius-lg:   12px;
+    --cs-radius-xl:   16px;
+    --cs-radius-pill: 999px;   /* CoreStack uses oval/pill for CTAs */
+
+    --cs-radius-btn:  8px;
+
+    /* ── Elevation ── */
+    --cs-shadow-card:   0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+    --cs-shadow-hover:  0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04);
+    --cs-shadow-modal:  0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+    --cs-shadow-btn:    0 2px 4px rgba(0, 98, 255, 0.25);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { font-size: 16px; line-height: 1.5; }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--cs-bg-page);
+    color: var(--cs-text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  #root { min-height: 100vh; display: flex; flex-direction: column; }
+
+  h1, h2, h3 { color: var(--cs-navy); font-weight: 700; line-height: 1.2; }
+  h4, h5, h6 { color: var(--cs-navy-mid); font-weight: 600; }
+  a { color: var(--cs-blue); }
+  a:hover { text-decoration: underline; }
+
+  :focus-visible {
+    outline: 2px solid var(--cs-blue);
+    outline-offset: 2px;
+    border-radius: var(--cs-radius-sm);
+  }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--cs-bg-subtle); }
+  ::-webkit-scrollbar-thumb { background: var(--cs-border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--cs-blue-muted); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TYPOGRAPHY UTILITIES
+   ═══════════════════════════════════════════════════════════════ */
+
+/* CoreStack section heading with blue underline — signature element */
+.cs-heading {
+  color: var(--cs-navy);
+  font-weight: 700;
+  position: relative;
+  padding-bottom: 14px;
+  margin-bottom: 6px;
+}
+.cs-heading::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 36px;
+  height: 3px;
+  background: var(--cs-blue);
+  border-radius: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BUTTON SYSTEM
+   ═══════════════════════════════════════════════════════════════ */
+
+.cs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0 22px;
+  height: 40px;
+  border-radius: var(--cs-radius-btn);
+  border: 2px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all 0.15s;
+  user-select: none;
+}
+.cs-btn:active:not(:disabled) { transform: scale(0.985); }
+.cs-btn:disabled:not(.is-loading) {
+  background: var(--cs-bg-subtle) !important;
+  color: var(--cs-subtle) !important;
+  border-color: var(--cs-border) !important;
+  cursor: not-allowed;
+  pointer-events: none;
+  box-shadow: none !important;
+}
+.cs-btn.is-loading {
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+/* Primary — solid blue pill (CoreStack "Book a Demo" style) */
+.cs-btn-primary {
+  background: var(--cs-blue);
+  border-color: var(--cs-blue);
+  color: #fff;
+}
+.cs-btn-primary:hover {
+  background: var(--cs-blue-dark);
+  border-color: var(--cs-blue-dark);
+  box-shadow: var(--cs-shadow-btn);
+}
+
+.cs-btn-pill {
+  border-radius: var(--cs-radius-pill);
+}
+
+/* Outline — hollow pill (CoreStack "Tour Platform" / "Explore Platform" style) */
+.cs-btn-outline {
+  background: transparent;
+  border-color: var(--cs-blue);
+  color: var(--cs-blue);
+}
+.cs-btn-outline:hover {
+  background: var(--cs-blue);
+  color: #fff;
+  box-shadow: var(--cs-shadow-btn);
+}
+
+/* Ghost */
+.cs-btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--cs-muted);
+}
+.cs-btn-ghost:hover {
+  background: var(--cs-bg-subtle);
+  color: var(--cs-navy);
+}
+
+/* Sizes */
+.cs-btn-sm { height: 33px; padding: 0 16px; font-size: 13px; }
+.cs-btn-lg { height: 46px; padding: 0 28px; font-size: 15px; }
+
+/* Danger */
+.cs-btn-danger {
+  background: var(--cs-error);
+  border-color: var(--cs-error);
+  color: #fff;
+}
+.cs-btn-danger:hover { background: #991b1b; border-color: #991b1b; }
+
+/* ═══════════════════════════════════════════════════════════════
+   INPUT SYSTEM
+   ═══════════════════════════════════════════════════════════════ */
+
+.cs-input {
+  display: block;
+  width: 100%;
+  height: 42px;
+  padding: 0 12px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--cs-navy);
+  background: #fff;
+  border: 1.5px solid var(--cs-border);
+  border-radius: var(--cs-radius-md);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.cs-input::placeholder { color: var(--cs-subtle); }
+.cs-input:focus {
+  border-color: var(--cs-blue);
+  box-shadow: 0 0 0 3px rgba(0,114,206,0.12);
+}
+.cs-input:disabled {
+  background: var(--cs-bg-subtle);
+  color: var(--cs-subtle);
+  cursor: not-allowed;
+}
+.cs-input-error {
+  border-color: var(--cs-error) !important;
+  box-shadow: 0 0 0 3px rgba(185,28,28,0.10) !important;
+}
+
+.cs-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--cs-muted);
+  margin-bottom: 6px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CARD SYSTEM
+   ═══════════════════════════════════════════════════════════════ */
+
+.cs-card {
+  background: var(--cs-card);
+  border: 1px solid var(--cs-border);
+  border-radius: var(--cs-radius-lg);
+  box-shadow: var(--cs-shadow-card);
+}
+.cs-card-hover {
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.cs-card-hover:hover {
+  border-color: var(--cs-blue);
+  box-shadow: var(--cs-shadow-hover);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BADGE / STATUS SYSTEM
+   ═══════════════════════════════════════════════════════════════ */
+
+.cs-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--cs-radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+.cs-badge-blue    { background: var(--cs-blue-light); color: var(--cs-blue);        border-color: var(--cs-blue-muted); }
+.cs-badge-success { background: var(--cs-success-bg); color: var(--cs-success);     border-color: var(--cs-success-border); }
+.cs-badge-warning { background: var(--cs-warning-bg); color: var(--cs-warning);     border-color: var(--cs-warning-border); }
+.cs-badge-error   { background: var(--cs-error-bg);   color: var(--cs-error);       border-color: var(--cs-error-border); }
+.cs-badge-gray    { background: #F1F5F9;               color: #64748B;              border-color: #CBD5E1; }
+
+/* ═══════════════════════════════════════════════════════════════
+   CHIP (selected model tag)
+   ═══════════════════════════════════════════════════════════════ */
+
+.cs-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px 3px 10px;
+  background: var(--cs-blue-light);
+  border: 1px solid var(--cs-blue-muted);
+  color: var(--cs-blue);
+  border-radius: var(--cs-radius-pill);
+  font-size: 12px;
+  font-weight: 500;
+}
+.cs-chip-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  border: none;
+  background: none;
+  color: var(--cs-blue);
+  padding: 0;
+  transition: background 0.1s;
+}
+.cs-chip-remove:hover { background: var(--cs-blue); color: #fff; }
+
+/* ═══════════════════════════════════════════════════════════════
+   SPINNER
+   ═══════════════════════════════════════════════════════════════ */
+
+@keyframes cs-spin { to { transform: rotate(360deg); } }
+@keyframes cs-pulse { 0%,100% { opacity:1; } 50% { opacity:.45; } }
+@keyframes cs-shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.cs-spinner {
+  width: 18px; height: 18px;
+  border: 2px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: cs-spin 0.7s linear infinite;
+}
+.cs-spinner-blue {
+  border-color: var(--cs-blue-muted);
+  border-top-color: var(--cs-blue);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SKELETON LOADER
+   ═══════════════════════════════════════════════════════════════ */
+
+.cs-skeleton {
+  background: linear-gradient(90deg, #EEF3F9 25%, #E2EBF5 50%, #EEF3F9 75%);
+  background-size: 400px 100%;
+  animation: cs-shimmer 1.4s ease infinite;
+  border-radius: var(--cs-radius-md);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DIVIDER
+   ═══════════════════════════════════════════════════════════════ */
+
+.cs-divider {
+  border: none;
+  border-top: 1px solid var(--cs-border-light);
+  margin: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   AUTH LAYOUT RESPONSIVE UTILITIES
+   ═══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  .cs-auth-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .cs-auth-left {
+    display: none !important;
+  }
+}
