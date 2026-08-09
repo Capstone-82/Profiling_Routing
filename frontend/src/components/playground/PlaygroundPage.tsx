@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppHeader } from '../layout/AppHeader';
+import { Footer } from '../layout/Footer';
 import type { Model, ModelResponse } from '../../types';
 import {
   getConnection,
@@ -9,13 +10,13 @@ import {
   MOCK_AVAILABLE_MODELS,
 } from '../../services/mock/mockService';
 import {
-  Send, ChevronDown, Zap, Clock, DollarSign,
-  Activity, AlertCircle, CornerDownRight, Info,
-  Trash2, Lock,
+  Send, Clock, DollarSign,
+  Activity, AlertCircle, CornerUpLeft, Info,
+  Trash2, Lock, CheckCircle2, ChevronDown, Check,
 } from 'lucide-react';
 
-// ─── Model Selector ───────────────────────────────────────────────────────────
-function ModelSelector({
+// ─── Custom Model Selection Dropdown ──────────────────────────────────────────
+function ModelDropdownSelector({
   models,
   selected,
   onChange,
@@ -25,165 +26,204 @@ function ModelSelector({
   onChange: (ids: string[]) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const toggle = (id: string) => {
-    onChange(selected.includes(id) ? selected.filter(s => s !== id) : [...selected, id]);
+  const toggleModel = (id: string) => {
+    if (selected.includes(id)) {
+      if (selected.length > 1) {
+        onChange(selected.filter(s => s !== id));
+      }
+    } else {
+      onChange([...selected, id]);
+    }
   };
 
   const selectedModels = models.filter(m => selected.includes(m.id));
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      {/* Trigger */}
-      <div
-        role="button"
-        tabIndex={0}
+    <div ref={dropdownRef} style={{ position: 'relative' }}>
+      {/* Dropdown Trigger Box */}
+      <button
+        type="button"
         onClick={() => setOpen(v => !v)}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(v => !v); } }}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label="Select models"
         style={{
           width: '100%',
-          minHeight: '42px',
-          padding: '7px 40px 7px 12px',
-          background: '#fff',
-          border: `1.5px solid ${open ? 'var(--cs-blue)' : 'var(--cs-border)'}`,
+          minHeight: '46px',
+          padding: '8px 14px',
+          background: '#FFFFFF',
+          border: `1.5px solid ${open ? '#0066FF' : '#D5E3F5'}`,
           borderRadius: '8px',
           cursor: 'pointer',
           display: 'flex',
-          flexWrap: 'wrap',
           alignItems: 'center',
-          gap: '5px',
-          textAlign: 'left',
-          transition: 'border-color 0.15s',
-          boxShadow: open ? '0 0 0 3px rgba(0,114,206,0.10)' : 'none',
-          position: 'relative',
+          justifyContent: 'space-between',
+          gap: '10px',
+          boxShadow: open ? '0 0 0 3px rgba(0, 102, 255, 0.12)' : '0 1px 3px rgba(11, 31, 58, 0.04)',
+          transition: 'all 0.15s ease',
         }}
+        aria-expanded={open}
+        aria-haspopup="listbox"
       >
-        {selectedModels.length === 0 ? (
-          <span style={{ fontSize: '13px', color: 'var(--cs-subtle)' }}>Choose models to route your prompt…</span>
-        ) : (
-          selectedModels.map(m => (
-            <span key={m.id} className="cs-chip">
-              {m.name}
-              <button
-                type="button"
-                className="cs-chip-remove"
-                onClick={e => { e.stopPropagation(); toggle(m.id); }}
-                aria-label={`Remove ${m.name}`}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+          {selectedModels.length === 0 ? (
+            <span style={{ fontSize: '13.5px', color: '#8EA3BD' }}>Select models to route prompt…</span>
+          ) : (
+            selectedModels.map(m => (
+              <span
+                key={m.id}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '3px 10px',
+                  background: '#EBF3FF',
+                  border: '1px solid #BFD7FF',
+                  borderRadius: '999px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  color: '#0066FF',
+                }}
               >
-                ×
-              </button>
-            </span>
-          ))
-        )}
+                {m.name}
+                <button
+                  type="button"
+                  onClick={e => {
+                    e.stopPropagation();
+                    toggleModel(m.id);
+                  }}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: '#0066FF', fontSize: '14px', lineHeight: 1, padding: 0,
+                  }}
+                  aria-label={`Remove ${m.name}`}
+                >
+                  ×
+                </button>
+              </span>
+            ))
+          )}
+        </div>
+
         <ChevronDown
-          size={15}
+          size={16}
           style={{
-            position: 'absolute', right: '12px', top: '50%',
-            transform: `translateY(-50%) rotate(${open ? '180deg' : '0deg'})`,
-            color: 'var(--cs-subtle)',
-            transition: 'transform 0.15s',
+            color: '#5C728D',
+            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s ease',
             flexShrink: 0,
           }}
         />
-      </div>
+      </button>
 
-      {/* Dropdown */}
+      {/* Dropdown Options Popover Panel */}
       {open && (
         <div
           role="listbox"
-          aria-multiselectable="true"
-          aria-label="Available models"
           style={{
-            position: 'absolute', zIndex: 30, top: 'calc(100% + 4px)', left: 0, right: 0,
-            background: '#fff',
-            border: '1px solid var(--cs-border)',
+            position: 'absolute',
+            top: 'calc(100% + 6px)',
+            left: 0,
+            right: 0,
+            zIndex: 50,
+            background: '#FFFFFF',
+            border: '1.5px solid #D5E3F5',
             borderRadius: '10px',
-            boxShadow: '0 8px 24px rgba(19,38,63,0.13)',
+            boxShadow: '0 10px 28px rgba(11, 31, 58, 0.12)',
             overflow: 'hidden',
+            maxHeight: '320px',
+            overflowY: 'auto',
           }}
         >
-          {/* Header */}
+          {/* Header Action Bar */}
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '10px 14px',
-            borderBottom: '1px solid var(--cs-border-light)',
-            background: 'var(--cs-bg-page)',
+            padding: '10px 14px', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0',
+            fontSize: '11px', fontWeight: 700, color: '#5C728D', letterSpacing: '0.04em', textTransform: 'uppercase',
           }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--cs-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              {models.length} models available
-            </span>
+            <span>{models.length} Models Available</span>
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button type="button" onClick={() => onChange(models.map(m => m.id))} style={{ fontSize: '12px', color: 'var(--cs-blue)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+              <button
+                type="button"
+                onClick={() => onChange(models.map(m => m.id))}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#0066FF', fontWeight: 700, fontSize: '11px' }}
+              >
                 Select all
               </button>
-              <button type="button" onClick={() => onChange([])} style={{ fontSize: '12px', color: 'var(--cs-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                Clear
+              <button
+                type="button"
+                onClick={() => onChange([models[0]?.id || '1'])}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8EA3BD', fontWeight: 600, fontSize: '11px' }}
+              >
+                Reset
               </button>
             </div>
           </div>
 
-          {/* Options */}
-          <div style={{ maxHeight: '260px', overflowY: 'auto' }}>
+          {/* Model Items */}
+          <div style={{ padding: '6px' }}>
             {models.map(m => {
               const isSelected = selected.includes(m.id);
               return (
-                <button
+                <div
                   key={m.id}
-                  type="button"
-                  role="option"
-                  aria-selected={isSelected}
-                  onClick={() => toggle(m.id)}
+                  onClick={() => toggleModel(m.id)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: '12px',
-                    width: '100%', padding: '11px 14px', textAlign: 'left',
-                    background: isSelected ? 'var(--cs-blue-light)' : 'transparent',
-                    border: 'none',
-                    borderBottom: '1px solid var(--cs-border-light)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '10px 12px',
+                    borderRadius: '6px',
+                    background: isSelected ? '#EBF3FF' : 'transparent',
                     cursor: 'pointer',
-                    transition: 'background 0.1s',
+                    transition: 'background 0.1s ease',
+                    marginBottom: '2px',
                   }}
-                  onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'var(--cs-bg-page)'; }}
-                  onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                  onMouseEnter={e => {
+                    if (!isSelected) e.currentTarget.style.background = '#F8FAFC';
+                  }}
+                  onMouseLeave={e => {
+                    if (!isSelected) e.currentTarget.style.background = 'transparent';
+                  }}
                 >
-                  {/* Checkbox */}
-                  <div style={{
-                    width: '16px', height: '16px', borderRadius: '4px', flexShrink: 0,
-                    border: `2px solid ${isSelected ? 'var(--cs-blue)' : 'var(--cs-border)'}`,
-                    background: isSelected ? 'var(--cs-blue)' : '#fff',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    transition: 'all 0.1s',
-                  }}>
-                    {isSelected && (
-                      <svg viewBox="0 0 10 8" fill="none" style={{ width: '9px' }}>
-                        <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    )}
-                  </div>
-
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--cs-navy)' }}>{m.name}</span>
-                      <span style={{ fontSize: '11px', color: 'var(--cs-muted)', fontWeight: 500 }}>{m.provider}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {/* Checkbox Icon */}
+                    <div style={{
+                      width: '18px', height: '18px', borderRadius: '4px',
+                      border: `1.5px solid ${isSelected ? '#0066FF' : '#CBD5E1'}`,
+                      background: isSelected ? '#0066FF' : '#FFFFFF',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#FFFFFF', flexShrink: 0,
+                    }}>
+                      {isSelected && <Check size={12} strokeWidth={3} />}
                     </div>
-                    <code style={{ fontSize: '10px', color: 'var(--cs-subtle)', fontFamily: 'monospace' }}>{m.providerModelId}</code>
+
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#0B1F3A' }}>{m.name}</span>
+                        <span style={{ fontSize: '10px', fontWeight: 700, color: '#5C728D', background: '#EEF4FA', padding: '1px 6px', borderRadius: '4px' }}>
+                          {m.provider}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#5C728D', marginTop: '1px' }}>
+                        {m.provider} • AWS Bedrock
+                      </div>
+                    </div>
                   </div>
 
-                  {m.contextWindow && (
-                    <span style={{ fontSize: '10px', color: 'var(--cs-subtle)', flexShrink: 0 }}>{m.contextWindow}</span>
-                  )}
-                </button>
+                  <code style={{ fontSize: '10.5px', color: '#0066FF', fontFamily: 'monospace', flexShrink: 0 }}>
+                    {m.providerModelId}
+                  </code>
+                </div>
               );
             })}
           </div>
@@ -201,88 +241,94 @@ function ResponsePanel({
   response,
   error,
   onRetry,
+  onClear,
 }: {
   state: ResponseState;
   response?: ModelResponse;
   error?: string;
   onRetry?: () => void;
+  onClear: () => void;
 }) {
   return (
-    <div className="cs-card" style={{ display: 'flex', flexDirection: 'column', minHeight: '440px' }}>
+    <div className="cs-card" style={{ display: 'flex', flexDirection: 'column', minHeight: '520px', position: 'relative' }}>
       {/* Panel header */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '14px 18px',
-        borderBottom: '1px solid var(--cs-border-light)',
+        padding: '14px 20px',
+        borderBottom: '1px solid #EEF4FA',
       }}>
-        <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--cs-navy)' }}>Response</span>
+        <span style={{ fontSize: '14px', fontWeight: 800, color: '#0B1F3A' }}>Response</span>
         {state === 'success' && response && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: '6px',
-            background: 'var(--cs-blue-light)', border: '1px solid var(--cs-blue-muted)',
-            padding: '4px 10px', borderRadius: '20px',
-            fontSize: '11px', fontWeight: 700, color: 'var(--cs-blue)',
+            background: '#DCFCE7', border: '1px solid #86EFAC',
+            padding: '3px 10px', borderRadius: '999px',
+            fontSize: '11px', fontWeight: 700, color: '#15803D',
           }}>
-            <Zap size={11} />
+            <CheckCircle2 size={12} />
             {response.model_used_name}
           </div>
         )}
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, padding: '18px', display: 'flex', flexDirection: 'column' }}>
-        {/* Empty */}
+      <div style={{ flex: 1, padding: '20px', display: 'flex', flexDirection: 'column' }}>
+        {/* Empty State */}
         {state === 'empty' && (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '32px 16px' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '40px 20px' }}>
             <div style={{
-              width: '44px', height: '44px', borderRadius: '50%',
-              background: 'var(--cs-bg-subtle)',
+              width: '48px', height: '48px', borderRadius: '50%',
+              background: '#EBF3FF', color: '#0066FF',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              marginBottom: '12px',
+              marginBottom: '16px',
             }}>
-              <CornerDownRight size={18} style={{ color: 'var(--cs-subtle)' }} />
+              <CornerUpLeft size={22} />
             </div>
-            <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--cs-muted)', marginBottom: '5px' }}>Your model response will appear here.</p>
-            <p style={{ fontSize: '12px', color: 'var(--cs-subtle)' }}>Select models and enter a prompt to get started.</p>
+            <p style={{ fontSize: '15px', fontWeight: 700, color: '#0B1F3A', marginBottom: '6px' }}>
+              Your model response will appear here.
+            </p>
+            <p style={{ fontSize: '13px', color: '#5C728D', maxWidth: '320px', lineHeight: 1.5 }}>
+              Select models from the dropdown and enter a prompt to get started.
+            </p>
           </div>
         )}
 
-        {/* Loading */}
+        {/* Loading State */}
         {state === 'loading' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--cs-muted)', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingTop: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', color: '#0066FF', fontWeight: 600, marginBottom: '8px' }}>
               <span className="cs-spinner cs-spinner-blue" />
-              Routing request to best available model…
+              Routing request to best available Bedrock model…
             </div>
-            {[100, 80, 90, 65, 85, 50].map((w, i) => (
-              <div key={i} className="cs-skeleton" style={{ height: '13px', width: `${w}%` }} />
+            {[100, 85, 92, 70, 88, 55].map((w, i) => (
+              <div key={i} className="cs-skeleton" style={{ height: '14px', width: `${w}%` }} />
             ))}
           </div>
         )}
 
-        {/* Success */}
+        {/* Success State */}
         {state === 'success' && response && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', flex: 1 }}>
-            <div style={{ fontSize: '14px', color: 'var(--cs-text)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
+            <div style={{ fontSize: '14px', color: '#0B1F3A', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
               {response.text}
             </div>
             {response.fallback_used && (
-              <div style={{ display: 'flex', gap: '8px', padding: '10px 12px', background: 'var(--cs-warning-bg)', border: '1px solid var(--cs-warning-border)', borderRadius: '8px', fontSize: '12px', color: '#78350F' }}>
-                <Info size={13} style={{ flexShrink: 0, marginTop: '1px', color: 'var(--cs-warning)' }} />
+              <div style={{ display: 'flex', gap: '8px', padding: '10px 14px', background: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: '8px', fontSize: '12px', color: '#B45309' }}>
+                <Info size={14} style={{ flexShrink: 0, marginTop: '1px', color: '#D97706' }} />
                 Primary model failed — automatically routed to <strong>{response.model_used_name}</strong> as fallback.
               </div>
             )}
           </div>
         )}
 
-        {/* Error */}
+        {/* Error State */}
         {state === 'error' && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '32px 16px' }}>
-            <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: 'var(--cs-error-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '12px' }}>
-              <AlertCircle size={18} style={{ color: 'var(--cs-error)' }} />
+            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#FEE2E2', color: '#DC2626', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
+              <AlertCircle size={22} />
             </div>
-            <p style={{ fontSize: '14px', fontWeight: 600, color: '#7F1D1D', marginBottom: '5px' }}>Unable to generate a response.</p>
-            <p style={{ fontSize: '12px', color: '#991B1B', marginBottom: '16px', maxWidth: '260px', lineHeight: 1.5 }}>{error}</p>
+            <p style={{ fontSize: '15px', fontWeight: 700, color: '#991B1B', marginBottom: '6px' }}>Unable to generate a response.</p>
+            <p style={{ fontSize: '13px', color: '#B91C1C', marginBottom: '18px', maxWidth: '280px', lineHeight: 1.5 }}>{error}</p>
             {onRetry && (
               <button onClick={onRetry} className="cs-btn cs-btn-outline cs-btn-sm">
                 Try again
@@ -292,32 +338,45 @@ function ResponsePanel({
         )}
       </div>
 
-      {/* Metadata footer */}
-      {state === 'success' && response && (
-        <div style={{
-          borderTop: '1px solid var(--cs-border-light)',
-          padding: '10px 18px',
-          background: 'var(--cs-bg-page)',
-          display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap',
-        }}>
-          {response.latency_ms !== undefined && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--cs-muted)' }}>
-              <Clock size={11} style={{ color: 'var(--cs-subtle)' }} /> {response.latency_ms} ms
-            </span>
-          )}
-          {response.tokens_used !== undefined && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--cs-muted)' }}>
-              <Activity size={11} style={{ color: 'var(--cs-subtle)' }} /> {response.tokens_used} tokens
-            </span>
-          )}
-          {response.estimated_cost !== undefined && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--cs-muted)' }}>
-              <DollarSign size={11} style={{ color: 'var(--cs-subtle)' }} /> ~${response.estimated_cost.toFixed(5)}
-            </span>
-          )}
-          <span style={{ marginLeft: 'auto', fontSize: '10px', color: 'var(--cs-border)' }}>Mocked — Task 4 will connect Bedrock</span>
-        </div>
-      )}
+      {/* Footer bar with Clear Button on bottom right */}
+      <div style={{
+        borderTop: '1px solid #EEF4FA',
+        padding: '12px 20px',
+        background: '#FFFFFF',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px',
+      }}>
+        {state === 'success' && response ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+            {response.latency_ms !== undefined && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#5C728D' }}>
+                <Clock size={12} style={{ color: '#8EA3BD' }} /> {response.latency_ms} ms
+              </span>
+            )}
+            {response.tokens_used !== undefined && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#5C728D' }}>
+                <Activity size={12} style={{ color: '#8EA3BD' }} /> {response.tokens_used} tokens
+              </span>
+            )}
+            {response.estimated_cost !== undefined && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#5C728D' }}>
+                <DollarSign size={12} style={{ color: '#8EA3BD' }} /> ~${response.estimated_cost.toFixed(5)}
+              </span>
+            )}
+          </div>
+        ) : (
+          <div />
+        )}
+
+        <button
+          type="button"
+          onClick={onClear}
+          className="cs-btn cs-btn-outline cs-btn-sm"
+          style={{ gap: '6px', height: '34px', fontSize: '12px', marginLeft: 'auto' }}
+        >
+          <Trash2 size={13} /> Clear
+        </button>
+      </div>
     </div>
   );
 }
@@ -335,7 +394,6 @@ export function PlaygroundPage() {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    // Check connection state — playground only works with verified connection
     getConnection().then(conn => {
       setConnectionVerified(conn.status === 'verified');
     });
@@ -343,7 +401,7 @@ export function PlaygroundPage() {
     getAvailableModels().then(ms => {
       const list = ms.length > 0 ? ms : MOCK_AVAILABLE_MODELS;
       setModels(list);
-      setSelectedIds(list.slice(0, 2).map(m => m.id));
+      setSelectedIds([list[0]?.id || 'model-1']);
       setLoadingModels(false);
     });
   }, []);
@@ -373,15 +431,15 @@ export function PlaygroundPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--cs-bg-page)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--cs-gray-bg)', display: 'flex', flexDirection: 'column' }}>
       <AppHeader activePath="/playground" />
 
-      <main style={{ maxWidth: '1280px', margin: '0 auto', padding: '40px 24px' }}>
+      <main style={{ maxWidth: '1280px', width: '100%', margin: '0 auto', padding: '40px 24px', flex: 1 }}>
 
         {/* Page heading */}
-        <div style={{ marginBottom: '32px' }}>
+        <div style={{ marginBottom: '28px' }}>
           <h1 className="cs-heading" style={{ fontSize: '28px' }}>AI Playground</h1>
-          <p style={{ fontSize: '14px', color: 'var(--cs-muted)', marginTop: '14px', lineHeight: 1.65 }}>
+          <p style={{ fontSize: '14px', color: '#5C728D', marginTop: '12px', lineHeight: 1.6 }}>
             Route prompts across connected foundation models.
           </p>
         </div>
@@ -391,43 +449,43 @@ export function PlaygroundPage() {
           <div style={{
             display: 'flex', alignItems: 'center', gap: '12px',
             padding: '14px 18px',
-            background: 'var(--cs-warning-bg)', border: '1px solid var(--cs-warning-border)',
-            borderRadius: '10px', marginBottom: '24px',
+            background: '#FEF3C7', border: '1px solid #FDE68A',
+            borderRadius: '8px', marginBottom: '24px',
           }}>
-            <Lock size={16} style={{ color: 'var(--cs-warning)', flexShrink: 0 }} />
+            <Lock size={16} style={{ color: '#D97706', flexShrink: 0 }} />
             <div>
-              <p style={{ fontSize: '13px', fontWeight: 600, color: '#78350F' }}>No provider connected</p>
+              <p style={{ fontSize: '13px', fontWeight: 700, color: '#78350F' }}>No provider connected</p>
               <p style={{ fontSize: '12px', color: '#92400E', marginTop: '2px' }}>
                 Connect AWS Bedrock on the{' '}
-                <button onClick={() => navigate('/connections')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cs-blue)', fontWeight: 600, fontSize: '12px', padding: 0, textDecoration: 'underline' }}>
+                <button onClick={() => navigate('/connections')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#0066FF', fontWeight: 700, fontSize: '12px', padding: 0, textDecoration: 'underline' }}>
                   Connections page
                 </button>
-                {' '}to enable prompt routing. Using mock models for preview.
+                {' '}to enable prompt routing.
               </p>
             </div>
           </div>
         )}
 
         {/* Two-column layout */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr minmax(320px, 38%)', gap: '20px', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', alignItems: 'start' }}>
 
           {/* LEFT: Controls */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-            {/* Model selector card */}
+            {/* Model Selector Card (Dropdown) */}
             <div className="cs-card" style={{ padding: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                 <div>
-                  <h2 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--cs-navy)' }}>Available models</h2>
-                  <p style={{ fontSize: '12px', color: 'var(--cs-muted)', marginTop: '2px' }}>
-                    Models available from your connected providers.
+                  <h2 style={{ fontSize: '14px', fontWeight: 800, color: '#0B1F3A' }}>Select Target Models</h2>
+                  <p style={{ fontSize: '12px', color: '#5C728D', marginTop: '2px' }}>
+                    Choose models from your connected AWS Bedrock provider.
                   </p>
                 </div>
                 {selectedIds.length > 0 && (
                   <span style={{
-                    fontSize: '11px', fontWeight: 700, color: 'var(--cs-blue)',
-                    background: 'var(--cs-blue-light)', border: '1px solid var(--cs-blue-muted)',
-                    padding: '3px 9px', borderRadius: '20px',
+                    fontSize: '11px', fontWeight: 700, color: '#0066FF',
+                    background: '#EBF3FF', border: '1px solid #BFD7FF',
+                    padding: '3px 10px', borderRadius: '999px',
                   }}>
                     {selectedIds.length} selected
                   </span>
@@ -435,79 +493,61 @@ export function PlaygroundPage() {
               </div>
 
               {loadingModels ? (
-                <div className="cs-skeleton" style={{ height: '42px', borderRadius: '8px' }} />
+                <div className="cs-skeleton" style={{ height: '46px', borderRadius: '8px' }} />
               ) : (
-                <ModelSelector models={models} selected={selectedIds} onChange={setSelectedIds} />
-              )}
-
-              {selectedIds.length === 0 && !loadingModels && (
-                <p style={{ fontSize: '12px', color: 'var(--cs-warning)', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <AlertCircle size={11} /> Select at least one model to send a prompt.
-                </p>
+                <ModelDropdownSelector models={models} selected={selectedIds} onChange={setSelectedIds} />
               )}
             </div>
 
-            {/* Prompt card */}
+            {/* Prompt input card */}
             <div className="cs-card" style={{ padding: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                <h2 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--cs-navy)' }}>Prompt</h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '11px', fontFamily: 'monospace', color: prompt.length > 4000 ? 'var(--cs-warning)' : 'var(--cs-subtle)' }}>
-                    {prompt.length.toLocaleString()} chars
-                  </span>
-                  {prompt && (
-                    <button
-                      type="button"
-                      onClick={handleClear}
-                      style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--cs-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}
-                      aria-label="Clear prompt"
-                    >
-                      <Trash2 size={11} /> Clear
-                    </button>
-                  )}
-                </div>
+                <h2 style={{ fontSize: '14px', fontWeight: 800, color: '#0B1F3A' }}>Prompt</h2>
+                <span style={{ fontSize: '12px', color: '#8EA3BD', fontFamily: 'monospace' }}>
+                  {prompt.length} chars
+                </span>
               </div>
 
               <textarea
                 value={prompt}
                 onChange={e => setPrompt(e.target.value)}
                 placeholder="Enter your prompt..."
-                rows={9}
+                rows={7}
                 aria-label="Prompt input"
                 style={{
                   width: '100%',
                   resize: 'vertical',
                   fontFamily: 'inherit',
                   fontSize: '14px',
-                  color: 'var(--cs-navy)',
-                  background: 'var(--cs-bg-page)',
-                  border: '1.5px solid var(--cs-border)',
+                  color: '#0B1F3A',
+                  background: '#F8FAFC',
+                  border: '1.5px solid #E2E8F0',
                   borderRadius: '8px',
-                  padding: '12px',
+                  padding: '14px',
                   outline: 'none',
-                  lineHeight: 1.65,
+                  lineHeight: 1.6,
                   transition: 'border-color 0.15s, box-shadow 0.15s',
                   display: 'block',
                   boxSizing: 'border-box',
                 }}
                 onFocus={e => {
-                  e.target.style.borderColor = 'var(--cs-blue)';
-                  e.target.style.boxShadow = '0 0 0 3px rgba(0,114,206,0.10)';
-                  e.target.style.background = '#fff';
+                  e.target.style.borderColor = '#0066FF';
+                  e.target.style.boxShadow = '0 0 0 3px rgba(0,102,255,0.10)';
+                  e.target.style.background = '#FFFFFF';
                 }}
                 onBlur={e => {
-                  e.target.style.borderColor = 'var(--cs-border)';
+                  e.target.style.borderColor = '#E2E8F0';
                   e.target.style.boxShadow = 'none';
-                  e.target.style.background = 'var(--cs-bg-page)';
+                  e.target.style.background = '#F8FAFC';
                 }}
                 onKeyDown={e => {
                   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSend();
                 }}
               />
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
-                <p style={{ fontSize: '12px', color: 'var(--cs-subtle)' }}>
-                  <kbd style={{ background: 'var(--cs-bg-subtle)', border: '1px solid var(--cs-border)', borderRadius: '4px', padding: '1px 5px', fontSize: '10px', fontFamily: 'monospace' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '16px' }}>
+                <p style={{ fontSize: '12px', color: '#8EA3BD' }}>
+                  <kbd style={{ background: '#EEF4FA', border: '1px solid #D5E3F5', borderRadius: '4px', padding: '2px 6px', fontSize: '11px', fontFamily: 'monospace' }}>
                     ⌘ Enter
                   </kbd>{' '}to send
                 </p>
@@ -516,30 +556,34 @@ export function PlaygroundPage() {
                   onClick={handleSend}
                   disabled={!canSend}
                   className={`cs-btn cs-btn-primary ${responseState === 'loading' ? 'is-loading' : ''}`}
-                  style={{ gap: '7px' }}
+                  style={{ height: '42px', fontSize: '14px', gap: '8px' }}
                   aria-label="Send prompt"
                 >
-                  {responseState === 'loading'
-                    ? <><span className="cs-spinner" style={{ width: '14px', height: '14px' }} /> Routing request…</>
-                    : <><Send size={14} /> Send Prompt</>
-                  }
+                  {responseState === 'loading' ? (
+                    <><span className="cs-spinner" style={{ width: '15px', height: '15px' }} /> Routing request…</>
+                  ) : (
+                    <><Send size={15} /> Send Prompt</>
+                  )}
                 </button>
               </div>
             </div>
+
           </div>
 
-          {/* RIGHT: Response */}
+          {/* RIGHT: Response Panel */}
           <div>
             <ResponsePanel
               state={responseState}
               response={response}
               error={errorMsg}
               onRetry={handleSend}
+              onClear={handleClear}
             />
           </div>
 
         </div>
       </main>
+      <Footer />
     </div>
   );
 }

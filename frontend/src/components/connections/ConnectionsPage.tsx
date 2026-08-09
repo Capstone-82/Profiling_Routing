@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { AppHeader } from '../layout/AppHeader';
+import { Footer } from '../layout/Footer';
 import type { Connection, Model } from '../../types';
 import { getConnection, testConnection as testConn, resetConnection } from '../../services/mock/mockService';
-import { ExternalLink, Copy, Check, AlertCircle } from 'lucide-react';
+import { ExternalLink, Copy, Check, AlertCircle, Zap, Lock } from 'lucide-react';
 
 // ─── Context plumbing ─────────────────────────────────────────────────────────
 const ConnCtx = React.createContext<{
@@ -29,6 +30,18 @@ function useConnectionState() {
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: Connection['status'] }) {
+  const [animate, setAnimate] = useState(false);
+  const prevStatusRef = React.useRef(status);
+
+  useEffect(() => {
+    if (prevStatusRef.current !== status) {
+      setAnimate(true);
+      const t = setTimeout(() => setAnimate(false), 350);
+      prevStatusRef.current = status;
+      return () => clearTimeout(t);
+    }
+  }, [status]);
+
   const map = {
     not_connected: { cls: 'cs-badge-gray',    label: 'Not Connected' },
     pending:       { cls: 'cs-badge-blue',    label: 'Connecting…' },
@@ -38,12 +51,12 @@ function StatusBadge({ status }: { status: Connection['status'] }) {
   const { cls, label } = map[status];
 
   return (
-    <span className={`cs-badge ${cls}`}>
+    <span className={`cs-badge ${cls} ${animate ? 'cs-badge-updated' : ''}`}>
       {status === 'pending' && (
         <span style={{ display: 'inline-block', width: '8px', height: '8px', border: '1.5px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'cs-spin 0.6s linear infinite' }} />
       )}
       {status === 'verified' && (
-        <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--cs-success)', display: 'inline-block' }} />
+        <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#16A34A', display: 'inline-block' }} />
       )}
       {label}
     </span>
@@ -54,28 +67,28 @@ function StatusBadge({ status }: { status: Connection['status'] }) {
 function ModelList({ models }: { models: Model[] }) {
   return (
     <div>
-      <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--cs-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-        Available models
+      <p style={{ fontSize: '11px', fontWeight: 800, color: '#0B1F3A', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+        Available Models
       </p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         {models.map(m => (
           <div
             key={m.id}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '7px 10px',
-              background: 'var(--cs-bg-page)',
-              border: '1px solid var(--cs-border-light)',
+              padding: '8px 12px',
+              background: '#F8FAFC',
+              border: '1px solid #E2E8F0',
               borderRadius: '6px',
               gap: '8px',
             }}
           >
             <div>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--cs-navy)' }}>{m.name}</span>
-              <span style={{ fontSize: '12px', color: 'var(--cs-muted)', marginLeft: '6px' }}>{m.provider}</span>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: '#0B1F3A' }}>{m.name}</span>
+              <span style={{ fontSize: '11px', color: '#5C728D', marginLeft: '6px', fontWeight: 500 }}>{m.provider}</span>
             </div>
-            <code style={{ fontSize: '10px', color: 'var(--cs-subtle)', fontFamily: 'monospace', flexShrink: 0 }}>
-              {m.providerModelId.split('.').slice(-1)[0]}
+            <code style={{ fontSize: '10.5px', color: '#0066FF', fontFamily: 'monospace', flexShrink: 0, background: '#EBF3FF', padding: '2px 6px', borderRadius: '4px' }}>
+              {m.providerModelId}
             </code>
           </div>
         ))}
@@ -90,7 +103,8 @@ function BedrockCard() {
   const { connection, setConnection } = useConn();
   const [roleArn, setRoleArn] = useState(connection.roleArn || '');
   const [testing, setTesting] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
+  const [copiedArn, setCopiedArn] = useState(false);
   const externalId = user?.id || '—';
 
   useEffect(() => {
@@ -99,13 +113,18 @@ function BedrockCard() {
 
   const copyId = () => {
     navigator.clipboard.writeText(externalId).catch(() => {});
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedId(true);
+    setTimeout(() => setCopiedId(false), 2000);
+  };
+
+  const copyArn = () => {
+    navigator.clipboard.writeText(roleArn).catch(() => {});
+    setCopiedArn(true);
+    setTimeout(() => setCopiedArn(false), 2000);
   };
 
   const handleTest = async () => {
     setTesting(true);
-    // Show pending immediately
     setConnection(prev => ({ ...prev, status: 'pending' }));
     const result = await testConn(roleArn, externalId);
     setConnection(result);
@@ -130,8 +149,8 @@ function BedrockCard() {
       className="cs-card"
       style={{
         padding: '24px',
-        borderColor: isVerified ? 'var(--cs-success-border)' : isFailed ? 'var(--cs-error-border)' : undefined,
-        boxShadow: isVerified ? '0 0 0 1px var(--cs-success-border), 0 4px 16px rgba(26,127,75,0.10)' : undefined,
+        borderColor: isVerified ? '#86EFAC' : isFailed ? '#FCA5A5' : '#D5E3F5',
+        boxShadow: isVerified ? '0 0 0 1px #86EFAC, 0 4px 16px rgba(22, 163, 74, 0.08)' : undefined,
       }}
     >
       {/* Header row */}
@@ -147,40 +166,38 @@ function BedrockCard() {
             AWS
           </div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--cs-navy)' }}>AWS Bedrock</div>
-            <div style={{ fontSize: '12px', color: 'var(--cs-muted)', marginTop: '1px' }}>Amazon Web Services</div>
+            <div style={{ fontWeight: 700, fontSize: '15px', color: '#0B1F3A' }}>AWS Bedrock</div>
+            <div style={{ fontSize: '12px', color: '#5C728D', marginTop: '1px' }}>Amazon Web Services</div>
           </div>
         </div>
         <StatusBadge status={connection.status} />
       </div>
 
-      <p style={{ fontSize: '13px', color: 'var(--cs-muted)', lineHeight: 1.6, marginBottom: '12px' }}>
+      <p style={{ fontSize: '13px', color: '#5C728D', lineHeight: 1.6, marginBottom: '14px' }}>
         Connect your AWS account to access foundation models available to your organization via IAM role assumption.
       </p>
 
       {/* Compact External ID */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px',
-      }}>
-        <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--cs-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>External ID</span>
-        <code style={{ fontSize: '11px', color: 'var(--cs-navy)', fontFamily: 'monospace', background: 'var(--cs-bg-subtle)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--cs-border)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
+        <span style={{ fontSize: '11px', fontWeight: 800, color: '#0B1F3A', textTransform: 'uppercase', letterSpacing: '0.04em' }}>EXTERNAL ID</span>
+        <code style={{ fontSize: '11px', color: '#0B1F3A', fontFamily: 'monospace', background: '#F5F9FD', padding: '3px 8px', borderRadius: '4px', border: '1px solid #D5E3F5' }}>
           {externalId}
         </code>
         <button
           onClick={copyId}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cs-blue)', padding: '4px', display: 'flex', alignItems: 'center' }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#0066FF', padding: '4px', display: 'flex', alignItems: 'center' }}
           aria-label="Copy External ID"
         >
-          {copied ? <Check size={13} style={{ color: 'var(--cs-success)' }} /> : <Copy size={13} />}
+          {copiedId ? <Check size={14} style={{ color: '#16A34A' }} /> : <Copy size={14} />}
         </button>
       </div>
 
       {/* Step 1 */}
-      <div style={{ marginBottom: '16px' }}>
-        <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--cs-navy)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-          Step 1 — Deploy CloudFormation Stack
+      <div style={{ marginBottom: '20px' }}>
+        <p style={{ fontSize: '11px', fontWeight: 800, color: '#0B1F3A', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+          STEP 1 — DEPLOY CLOUDFORMATION STACK
         </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <a
             href={`data:text/yaml;charset=utf-8,${encodeURIComponent(`AWSTemplateFormatVersion: '2010-09-09'
 Description: 'CloudFormation template to create IAM Role for AI Profiling & Routing Platform Bedrock integration'
@@ -226,57 +243,63 @@ Outputs:
     Description: 'The ARN of the created IAM Role. Copy and paste this back into the AI Routing Platform Connections page.'
     Value: !GetAtt BedrockAccessRole.Arn`)}`}
             download="bedrock-role-template.yaml"
-            className="cs-btn"
-            style={{ width: '100%', textDecoration: 'none', justifyContent: 'center', background: 'var(--cs-bg-subtle)', border: '1px solid var(--cs-border)', color: 'var(--cs-navy)', fontSize: '12px' }}
+            className="cs-btn cs-btn-outline"
+            style={{ width: '100%', textDecoration: 'none', justifyContent: 'center', height: '42px', fontSize: '13px' }}
           >
-            1. Download Template (.yaml)
+            1. Download Template (.yaml) <ExternalLink size={13} style={{ marginLeft: '4px' }} />
           </a>
           <a
             href={`https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/create/template`}
             target="_blank"
             rel="noreferrer"
             className="cs-btn cs-btn-primary"
-            style={{ width: '100%', textDecoration: 'none', justifyContent: 'center' }}
+            style={{ width: '100%', textDecoration: 'none', justifyContent: 'center', height: '42px', fontSize: '13px' }}
           >
             2. Open AWS CloudFormation Console <ExternalLink size={13} />
           </a>
         </div>
-        <p style={{ fontSize: '11px', color: 'var(--cs-subtle)', marginTop: '6px', lineHeight: 1.4 }}>
-          Upload the downloaded <code style={{ fontSize: '10px' }}>bedrock-role-template.yaml</code> file into CloudFormation, paste your External ID above when prompted, and create the stack.
+        <p style={{ fontSize: '11px', color: '#8EA3BD', marginTop: '8px', lineHeight: 1.4 }}>
+          Upload the downloaded <code style={{ fontSize: '10.5px' }}>bedrock-role-template.yaml</code> file into CloudFormation, paste your External ID above when prompted, and create the stack.
         </p>
       </div>
 
       {/* Step 2 */}
-      <div style={{ marginBottom: '16px' }}>
-        <div style={{ marginBottom: '8px' }}>
-          <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--cs-navy)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Step 2 — Paste Role ARN
-          </p>
+      <div style={{ marginBottom: '20px' }}>
+        <p style={{ fontSize: '11px', fontWeight: 800, color: '#0B1F3A', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+          STEP 2 — PASTE ROLE ARN
+        </p>
+        <div style={{ position: 'relative' }}>
+          <input
+            type="text"
+            value={roleArn}
+            onChange={e => setRoleArn(e.target.value)}
+            placeholder="arn:aws:iam::123456789012:role/RoleName"
+            className={`cs-input ${arnFormatError ? 'cs-input-error' : ''}`}
+            style={{ fontFamily: 'monospace', fontSize: '12px', paddingRight: '40px', height: '42px' }}
+            aria-label="IAM Role ARN"
+          />
+          {roleArn && (
+            <button
+              onClick={copyArn}
+              style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#0066FF', padding: '2px' }}
+              aria-label="Copy Role ARN"
+            >
+              {copiedArn ? <Check size={14} style={{ color: '#16A34A' }} /> : <Copy size={14} />}
+            </button>
+          )}
         </div>
-        <input
-          type="text"
-          value={roleArn}
-          onChange={e => setRoleArn(e.target.value)}
-          placeholder="arn:aws:iam::123456789012:role/RoleName"
-          className={`cs-input ${arnFormatError ? 'cs-input-error' : ''}`}
-          style={{ fontFamily: 'monospace', fontSize: '12px' }}
-          aria-label="IAM Role ARN"
-        />
         {arnFormatError && (
           <p style={{ fontSize: '11px', color: 'var(--cs-error)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <AlertCircle size={11} /> {arnFormatError}
+            <AlertCircle size={12} /> {arnFormatError}
           </p>
         )}
       </div>
 
       {/* Error message */}
       {isFailed && connection.error && (
-        <div style={{
-          background: 'var(--cs-error-bg)', border: '1px solid var(--cs-error-border)',
-          borderRadius: '8px', padding: '12px', marginBottom: '16px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '12px', color: 'var(--cs-error)', marginBottom: '4px' }}>
-            <AlertCircle size={13} /> Connection failed
+        <div style={{ background: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '12px', color: '#DC2626', marginBottom: '4px' }}>
+            <AlertCircle size={14} /> Connection failed
           </div>
           <p style={{ fontSize: '12px', color: '#7F1D1D', fontFamily: 'monospace', lineHeight: 1.5, wordBreak: 'break-word' }}>
             {connection.error}
@@ -286,38 +309,32 @@ Outputs:
 
       {/* Verified model list */}
       {isVerified && connection.availableModels?.length && (
-        <div style={{ marginBottom: '16px' }}>
-          <div style={{ height: '1px', background: 'var(--cs-border-light)', margin: '0 0 16px' }} />
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{ height: '1px', background: '#E2E8F0', margin: '0 0 16px' }} />
           <ModelList models={connection.availableModels} />
         </div>
       )}
 
       {/* Actions */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {isFailed ? (
-          <button
-            onClick={handleTest}
-            disabled={testing || !roleArn.trim() || Boolean(arnFormatError)}
-            className={`cs-btn cs-btn-primary ${testing ? 'is-loading' : ''}`}
-            style={{ width: '100%' }}
-          >
-            {testing ? <><span className="cs-spinner" style={{ width: '14px', height: '14px' }} /> Verifying…</> : 'Try Again'}
-          </button>
-        ) : (
-          <button
-            onClick={handleTest}
-            disabled={testing || !roleArn.trim() || Boolean(arnFormatError)}
-            className={`cs-btn cs-btn-primary ${testing ? 'is-loading' : ''}`}
-            style={{ width: '100%' }}
-          >
-            {testing ? <><span className="cs-spinner" style={{ width: '14px', height: '14px' }} /> Verifying connection…</> : 'Test Connection'}
-          </button>
-        )}
+        <button
+          onClick={handleTest}
+          disabled={testing || !roleArn.trim() || Boolean(arnFormatError)}
+          className={`cs-btn cs-btn-primary ${testing ? 'is-loading' : ''}`}
+          style={{ width: '100%', height: '44px', fontSize: '14px', justifyContent: 'center' }}
+        >
+          {testing ? (
+            <><span className="cs-spinner" style={{ width: '16px', height: '16px' }} /> Verifying connection…</>
+          ) : (
+            <><Zap size={15} /> Test Connection</>
+          )}
+        </button>
+
         {connection.status !== 'not_connected' && (
           <button
             type="button"
             onClick={handleReset}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cs-subtle)', fontSize: '12px', textAlign: 'center', textDecoration: 'underline' }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8EA3BD', fontSize: '12px', textAlign: 'center', textDecoration: 'underline', marginTop: '2px' }}
           >
             Reset connection
           </button>
@@ -340,11 +357,11 @@ interface ComingSoonCardProps {
 
 function ComingSoonCard({ abbrev, name, provider, iconBg, iconBorder, iconColor, description }: ComingSoonCardProps) {
   return (
-    <div className="cs-card" style={{ padding: '24px', opacity: 0.7, alignSelf: 'flex-start' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
+    <div className="cs-card" style={{ padding: '24px', opacity: 0.7 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{
-            width: '40px', height: '40px', borderRadius: '8px',
+            width: '44px', height: '44px', borderRadius: '8px',
             background: iconBg, border: `1px solid ${iconBorder}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: '11px', fontWeight: 900, color: iconColor, flexShrink: 0,
@@ -352,16 +369,31 @@ function ComingSoonCard({ abbrev, name, provider, iconBg, iconBorder, iconColor,
             {abbrev}
           </div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--cs-navy)' }}>{name}</div>
-            <div style={{ fontSize: '12px', color: 'var(--cs-muted)' }}>{provider}</div>
+            <div style={{ fontWeight: 700, fontSize: '15px', color: '#0B1F3A' }}>{name}</div>
+            <div style={{ fontSize: '12px', color: '#5C728D', marginTop: '1px' }}>{provider}</div>
           </div>
         </div>
-        <span className="cs-badge cs-badge-gray" style={{ fontSize: '10px' }}>Coming Soon</span>
+        <span className="cs-badge cs-badge-gray">COMING SOON</span>
       </div>
 
-      <p style={{ fontSize: '13px', color: 'var(--cs-subtle)', lineHeight: 1.5, margin: 0 }}>
+      <p style={{ fontSize: '13px', color: '#5C728D', lineHeight: 1.6, marginBottom: '20px' }}>
         {description}
       </p>
+
+      <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '14px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#8EA3BD', marginBottom: '8px' }}>
+          <Lock size={12} /> Integration not available in V1
+        </div>
+        <div style={{ height: '32px', background: '#E2E8F0', borderRadius: '6px' }} />
+      </div>
+
+      <button
+        disabled
+        className="cs-btn"
+        style={{ width: '100%', background: '#EEF4FA', borderColor: '#D5E3F5', color: '#8EA3BD', cursor: 'not-allowed', height: '42px' }}
+      >
+        Available in a future release
+      </button>
     </div>
   );
 }
@@ -372,34 +404,34 @@ export function ConnectionsPage() {
 
   return (
     <ConnCtx.Provider value={{ connection, setConnection }}>
-      <div style={{ minHeight: '100vh', background: 'var(--cs-bg-page)' }}>
+      <div style={{ minHeight: '100vh', background: 'var(--cs-gray-bg)', display: 'flex', flexDirection: 'column' }}>
         <AppHeader activePath="/connections" />
 
-        <main style={{ maxWidth: '1280px', margin: '0 auto', padding: '32px 24px' }}>
+        <main style={{ maxWidth: '1280px', width: '100%', margin: '0 auto', padding: '40px 24px', flex: 1 }}>
 
           {/* Page heading */}
-          <div style={{ marginBottom: '24px' }}>
+          <div style={{ marginBottom: '28px' }}>
             <h1 className="cs-heading" style={{ fontSize: '28px', marginBottom: '0' }}>
               AI Provider Connections
             </h1>
-            <p style={{ fontSize: '14px', color: 'var(--cs-muted)', marginTop: '10px', maxWidth: '540px', lineHeight: 1.5 }}>
+            <p style={{ fontSize: '14px', color: '#5C728D', marginTop: '12px', maxWidth: '540px', lineHeight: 1.6 }}>
               Connect your cloud AI providers to securely access and govern available foundation models.
             </p>
           </div>
 
           {/* Provider grid */}
           {initialLoading ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
               {[1,2,3].map(i => (
-                <div key={i} className="cs-card" style={{ padding: '24px', height: '320px' }}>
-                  <div className="cs-skeleton" style={{ height: '44px', width: '60px', borderRadius: '8px', marginBottom: '12px' }} />
+                <div key={i} className="cs-card" style={{ padding: '24px', height: '340px' }}>
+                  <div className="cs-skeleton" style={{ height: '44px', width: '60px', borderRadius: '8px', marginBottom: '16px' }} />
                   <div className="cs-skeleton" style={{ height: '16px', width: '140px', marginBottom: '8px' }} />
                   <div className="cs-skeleton" style={{ height: '12px', width: '80px' }} />
                 </div>
               ))}
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px', alignItems: 'flex-start', marginBottom: '32px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '24px', alignItems: 'flex-start' }}>
               <BedrockCard />
               <ComingSoonCard
                 abbrev="GCP"
@@ -418,9 +450,8 @@ export function ConnectionsPage() {
             </div>
           )}
 
-          {/* Removed redundant bottom CTA entirely */}
-
         </main>
+        <Footer />
       </div>
     </ConnCtx.Provider>
   );

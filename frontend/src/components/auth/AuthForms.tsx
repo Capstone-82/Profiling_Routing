@@ -1,80 +1,18 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { CheckCircle2, AlertCircle, Eye, EyeOff, Check } from 'lucide-react';
+import { BrandPanel } from './BrandPanel';
+import { Mail, Lock, Eye, EyeOff, AlertCircle, ArrowRight, ShieldCheck, Check } from 'lucide-react';
 
-function Logo() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="#0072CE" />
-      <path d="M2 17L12 22L22 17M2 12L12 17L22 12" stroke="#0072CE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-// ─── Shared Layout ────────────────────────────────────────────────────────────
+// Shared layout shell
 function AuthLayout({ children }: { children: React.ReactNode }) {
-  const pillars = [
-    'Multi-provider AI governance',
-    'Secure cloud provider connections',
-    'Intelligent model routing',
-  ];
-
   return (
-    <div className="cs-auth-grid" style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-      {/* LEFT — Brand panel */}
-      <div
-        className="cs-auth-left"
-        style={{
-          background: 'linear-gradient(180deg, #F4F7FB 0%, #EBF4FD 100%)',
-          padding: '48px 64px',
-          display: 'flex',
-          flexDirection: 'column',
-          borderRight: '1px solid var(--cs-border-light)',
-        }}
-        aria-hidden="true"
-      >
-        {/* Brand */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '80px' }}>
-          <Logo />
-          <div style={{ lineHeight: 1 }}>
-            <div style={{ fontSize: '16px', fontWeight: 800, color: '#13263F', letterSpacing: '-0.2px' }}>CORESTACK</div>
-            <div style={{ fontSize: '9px', fontWeight: 700, color: '#0072CE', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: '2px' }}>AI Governance OS</div>
-          </div>
-        </div>
-
-        {/* Headline */}
-        <div style={{ marginBottom: '32px' }}>
-          <h1 style={{ fontSize: '32px', fontWeight: 800, color: '#13263F', lineHeight: 1.2, marginBottom: '16px' }}>
-            Govern AI models<br />with confidence.
-          </h1>
-          <p style={{ fontSize: '15px', color: '#5A7184', lineHeight: 1.6, maxWidth: '400px' }}>
-            Connect your cloud AI providers, govern model access, and intelligently route workloads across foundation models.
-          </p>
-        </div>
-
-        {/* Pillars */}
-        <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {pillars.map(p => (
-            <li key={p} style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '14px', color: '#2B3F57', fontWeight: 500 }}>
-              <CheckCircle2 size={18} style={{ color: '#0072CE', flexShrink: 0 }} />
-              {p}
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* RIGHT — Auth panel */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'var(--cs-bg-page)',
-          padding: '24px',
-        }}
-      >
-        <div style={{ width: '100%', maxWidth: '440px' }}>
+    <div style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: '52% 48%' }} className="cs-auth-grid">
+      <BrandPanel />
+      
+      {/* RIGHT — Auth Form Panel */}
+      <div style={{ background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 56px' }}>
+        <div style={{ width: '100%', maxWidth: '420px' }}>
           {children}
         </div>
       </div>
@@ -82,568 +20,415 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ─── UI Components ────────────────────────────────────────────────────────────
-
-function AlertBox({ type, children }: { type: 'error' | 'success', children: React.ReactNode }) {
-  const isError = type === 'error';
+// Security Badge Indicator
+function SecurityBadge() {
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: '10px',
-      padding: '12px 16px', borderRadius: '6px',
-      background: isError ? 'var(--cs-error-bg)' : 'var(--cs-success-bg)',
-      border: `1px solid ${isError ? 'var(--cs-error-border)' : 'var(--cs-success-border)'}`,
-      color: isError ? 'var(--cs-error)' : 'var(--cs-success)',
-      fontSize: '13px', fontWeight: 500, lineHeight: 1.5,
+      display: 'inline-flex', alignItems: 'center', gap: '6px',
+      padding: '4px 10px', background: '#DCFCE7', border: '1px solid #86EFAC',
+      borderRadius: '999px', fontSize: '11px', fontWeight: 700, color: '#15803D',
+      marginBottom: '16px',
     }}>
-      {isError ? <AlertCircle size={16} style={{ flexShrink: 0 }} /> : <CheckCircle2 size={16} style={{ flexShrink: 0 }} />}
-      <div>{children}</div>
+      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#16A34A', display: 'inline-block' }} />
+      Secure enterprise sign-in
     </div>
   );
 }
 
+
+
+// Enterprise Trust Subtext Footer
+function TrustFooter() {
+  return (
+    <div style={{ marginTop: '32px', paddingTop: '20px', borderTop: '1px solid #F1F5F9', textAlign: 'center' }}>
+      <p style={{ fontSize: '11.5px', fontWeight: 700, color: '#5C728D', marginBottom: '6px' }}>
+        Enterprise-grade AI governance
+      </p>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', fontSize: '11px', color: '#8EA3BD' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <ShieldCheck size={12} style={{ color: '#0066FF' }} /> Encrypted
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <Lock size={12} style={{ color: '#16A34A' }} /> Identity-aware
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <Check size={12} style={{ color: '#0284C7' }} /> Multi-cloud
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Shared Form Field ────────────────────────────────────────────────────────
 interface FormFieldProps {
   id: string;
   label: string;
   type?: string;
   value: string;
   onChange: (v: string) => void;
-  onBlur?: () => void;
-  error?: string;
   placeholder?: string;
   autoComplete?: string;
+  error?: string;
   disabled?: boolean;
+  hint?: string;
+  icon: 'email' | 'lock';
 }
 
-function FormField({ id, label, type = 'text', value, onChange, onBlur, error, placeholder, autoComplete, disabled }: FormFieldProps) {
-  const [showPassword, setShowPassword] = useState(false);
+function FormField({ id, label, type = 'text', value, onChange, placeholder, autoComplete, error, disabled, hint, icon }: FormFieldProps) {
+  const [showPw, setShowPw] = useState(false);
   const isPassword = type === 'password';
-  const inputType = isPassword ? (showPassword ? 'text' : 'password') : type;
+  const inputType = isPassword ? (showPw ? 'text' : 'password') : type;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-      <label htmlFor={id} style={{ fontSize: '11px', fontWeight: 700, color: 'var(--cs-navy)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        {label}
-      </label>
+      <label className="cs-label" htmlFor={id}>{label}</label>
       <div style={{ position: 'relative' }}>
+        {/* Lead Icon */}
+        <div style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#8EA3BD', display: 'flex', pointerEvents: 'none' }}>
+          {icon === 'email' ? <Mail size={16} /> : <Lock size={16} />}
+        </div>
+
         <input
           id={id}
           type={inputType}
           value={value}
           onChange={e => onChange(e.target.value)}
-          onBlur={onBlur}
           placeholder={placeholder}
           autoComplete={autoComplete}
           disabled={disabled}
+          aria-describedby={error ? `${id}-err` : hint ? `${id}-hint` : undefined}
+          aria-invalid={Boolean(error)}
           className={`cs-input ${error ? 'cs-input-error' : ''}`}
-          style={{ width: '100%', paddingRight: isPassword ? '40px' : '12px' }}
+          style={{ paddingRight: isPassword ? '42px' : '14px' }}
         />
+
         {isPassword && (
           <button
             type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            tabIndex={-1}
+            onClick={() => setShowPw(v => !v)}
             style={{
-              position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
-              background: 'none', border: 'none', color: 'var(--cs-subtle)', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
+              position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)',
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: '#8EA3BD', display: 'flex', padding: '2px',
             }}
+            tabIndex={-1}
+            aria-label={showPw ? 'Hide password' : 'Show password'}
           >
-            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         )}
       </div>
-      {error && <span style={{ fontSize: '12px', color: 'var(--cs-error)' }}>{error}</span>}
+      {error && <p id={`${id}-err`} role="alert" style={{ fontSize: '12px', color: 'var(--cs-error)', display: 'flex', alignItems: 'center', gap: '5px' }}><AlertCircle size={13} />{error}</p>}
+      {hint && !error && <p id={`${id}-hint`} style={{ fontSize: '12px', color: 'var(--cs-subtle)' }}>{hint}</p>}
     </div>
   );
 }
 
-// ─── Login Form ───────────────────────────────────────────────────────────────
+// Alert box
+function AlertBox({ type, children }: { type: 'error' | 'success' | 'info'; children: React.ReactNode }) {
+  const styles = {
+    error:   { bg: '#FEE2E2', border: '#FCA5A5', color: '#991B1B' },
+    success: { bg: '#DCFCE7', border: '#86EFAC', color: '#15803D' },
+    info:    { bg: '#EBF3FF', border: '#BFD7FF', color: '#1A365D' },
+  }[type];
+  return (
+    <div style={{ padding: '10px 14px', background: styles.bg, border: `1px solid ${styles.border}`, borderRadius: '8px', fontSize: '13px', color: styles.color, display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+      <AlertCircle size={15} style={{ flexShrink: 0, marginTop: '1px' }} />
+      <span>{children}</span>
+    </div>
+  );
+}
 
+function humanizeAuthError(msg: string): string {
+  const m = msg.toLowerCase();
+  if (m.includes('invalid login') || m.includes('invalid credentials') || m.includes('wrong password')) return 'Incorrect email or password. Please try again.';
+  if (m.includes('email not confirmed')) return 'Please check your email and confirm your account first.';
+  if (m.includes('already registered') || m.includes('user already exists')) return 'An account with this email already exists. Try signing in instead.';
+  if (m.includes('password') && m.includes('short')) return 'Password must be at least 6 characters.';
+  if (m.includes('rate limit')) return 'Too many attempts. Please wait a moment and try again.';
+  if (m.includes('network') || m.includes('fetch')) return 'Connection error. Check your internet and try again.';
+  return msg;
+}
+
+// ─── LOGIN FORM ───────────────────────────────────────────────────────────────
 export function LoginForm() {
-  const { signIn, loginAsDemo } = useAuth();
+  const { signIn } = useAuth();
   const navigate = useNavigate();
-  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [serverError, setServerError] = useState('');
-  
-  const [touchedEmail, setTouchedEmail] = useState(false);
-  const [touchedPassword, setTouchedPassword] = useState(false);
+  const [error, setError] = useState('');
 
-  // Validation
-  const emailError = touchedEmail && !email ? 'Enter your email address' : 
-                     touchedEmail && !/\S+@\S+\.\S+/.test(email) ? 'Enter a valid email address' : '';
-  const passwordError = touchedPassword && !password ? 'Enter your password' : '';
-  const isValid = email && password && !emailError && !passwordError;
+  const isValid = email.trim() && password.length >= 6;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setTouchedEmail(true);
-    setTouchedPassword(true);
     if (!isValid) return;
-
+    setError('');
     setLoading(true);
-    setServerError('');
     try {
       await signIn(email, password);
       navigate('/connections');
-    } catch (err: any) {
-      setServerError(err.message);
+    } catch (err: unknown) {
+      setError(humanizeAuthError(err instanceof Error ? err.message : 'Sign in failed. Please try again.'));
+    } finally {
       setLoading(false);
     }
   };
 
-  const handleDemoClick = () => {
-    loginAsDemo(email || 'demo@corestack.io');
-    navigate('/connections');
-  };
-
   return (
     <AuthLayout>
-      <div style={{ marginBottom: '32px' }}>
-        <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--cs-navy)', marginBottom: '8px' }}>Welcome back</h2>
-        <p style={{ fontSize: '14px', color: 'var(--cs-muted)' }}>Sign in to your account to continue.</p>
-      </div>
+      <SecurityBadge />
+      <h2 style={{ fontSize: '26px', fontWeight: 800, color: '#0B1F3A', marginBottom: '6px', letterSpacing: '-0.3px' }}>
+        Welcome back
+      </h2>
+      <p style={{ fontSize: '14px', color: '#5C728D', marginBottom: '24px', lineHeight: 1.5 }}>
+        Sign in to your CoreStack workspace.
+      </p>
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} noValidate>
-        <FormField 
-          id="email" 
-          label="Work email" 
-          type="email" 
-          value={email} 
-          onChange={setEmail} 
-          onBlur={() => setTouchedEmail(true)}
-          error={emailError}
-          placeholder="you@company.com" 
-          autoComplete="email" 
-          disabled={loading} 
-        />
-        
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <FormField 
-            id="password" 
-            label="Password" 
-            type="password" 
-            value={password} 
-            onChange={setPassword} 
-            onBlur={() => setTouchedPassword(true)}
-            error={passwordError}
-            placeholder="Enter your password" 
-            autoComplete="current-password" 
-            disabled={loading} 
-          />
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-2px' }}>
-            <Link to="/forgot-password" style={{ fontSize: '12px', color: 'var(--cs-blue)', textDecoration: 'none', fontWeight: 500 }}>
+
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }} noValidate>
+        <FormField id="login-email" label="Work email" type="email" value={email} onChange={setEmail} placeholder="you@company.com" autoComplete="email" disabled={loading} icon="email" />
+        <div>
+          <FormField id="login-password" label="Password" type="password" value={password} onChange={setPassword} placeholder="Enter your password" autoComplete="current-password" disabled={loading} icon="lock" />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
+            <Link to="/forgot-password" style={{ fontSize: '12.5px', color: '#0066FF', textDecoration: 'none', fontWeight: 600 }}>
               Forgot password?
             </Link>
           </div>
         </div>
 
-        {serverError && <AlertBox type="error">{serverError}</AlertBox>}
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
-          <button
-            type="submit"
-            disabled={!isValid || loading}
-            className={`cs-btn cs-btn-primary ${loading ? 'is-loading' : ''}`}
-            style={{ width: '100%', height: '44px', fontSize: '15px' }}
-          >
-            {loading ? <><div className="cs-spinner" style={{ width: '16px', height: '16px' }} /> Signing in…</> : 'Sign In'}
-          </button>
-          
-          <button
-            type="button"
-            onClick={handleDemoClick}
-            className="cs-btn"
-            style={{ width: '100%', height: '40px', fontSize: '13px', background: 'var(--cs-bg-subtle)', border: '1px solid var(--cs-border)', color: 'var(--cs-navy)', justifyContent: 'center' }}
-          >
-            ⚡ Continue in Demo Mode (Skip Auth)
-          </button>
-        </div>
-      </form>
-
-      <p style={{ textAlign: 'center', marginTop: '24px', fontSize: '14px', color: 'var(--cs-muted)' }}>
-        Don't have an account? <Link to="/signup" style={{ color: 'var(--cs-blue)', fontWeight: 600, textDecoration: 'none' }}>Create account</Link>
-      </p>
-    </AuthLayout>
-  );
-}
-
-// ─── Signup Form ──────────────────────────────────────────────────────────────
-
-export function SignupForm() {
-  const { signUp, loginAsDemo } = useAuth();
-  const navigate = useNavigate();
-  
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [serverError, setServerError] = useState('');
-  
-  const [touchedEmail, setTouchedEmail] = useState(false);
-  const [touchedConfirm, setTouchedConfirm] = useState(false);
-
-  const [successState, setSuccessState] = useState(false);
-
-  const emailError = touchedEmail && !email ? 'Enter your email address' : 
-                     touchedEmail && !/\S+@\S+\.\S+/.test(email) ? 'Enter a valid email address' : '';
-  const confirmError = touchedConfirm && confirmPassword !== password ? 'Passwords don\'t match.' : '';
-
-  const hasLength = password.length >= 8;
-  const hasUpper = /[A-Z]/.test(password);
-  const hasLower = /[a-z]/.test(password);
-  const hasNumber = /[0-9]/.test(password);
-  const isPasswordValid = hasLength && hasUpper && hasLower && hasNumber;
-
-  const isValid = email && !emailError && isPasswordValid && confirmPassword === password;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setTouchedEmail(true);
-    setTouchedConfirm(true);
-    if (!isValid) return;
-
-    setLoading(true);
-    setServerError('');
-    try {
-      const { requiresConfirmation } = await signUp(email, password);
-      if (requiresConfirmation) {
-        setSuccessState(true);
-      } else {
-        navigate('/connections');
-      }
-    } catch (err: any) {
-      setServerError(err.message);
-      setLoading(false);
-    }
-  };
-
-  const handleDemoClick = () => {
-    loginAsDemo(email || 'musharraf@corestack.io');
-    navigate('/connections');
-  };
-
-  if (successState) {
-    return (
-      <AuthLayout>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '50%', background: 'var(--cs-success-bg)', color: 'var(--cs-success)', marginBottom: '24px' }}>
-            <CheckCircle2 size={24} />
-          </div>
-          <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--cs-navy)', marginBottom: '12px' }}>Check your email</h2>
-          <p style={{ fontSize: '15px', color: 'var(--cs-muted)', lineHeight: 1.6, marginBottom: '24px' }}>
-            We've sent a verification link to:<br/>
-            <strong style={{ color: 'var(--cs-navy)' }}>{email}</strong>
-          </p>
-          <p style={{ fontSize: '14px', color: 'var(--cs-muted)', marginBottom: '32px' }}>
-            Click the link in the email to verify your account.
-          </p>
-          <Link to="/login" className="cs-btn" style={{ width: '100%', background: 'var(--cs-bg-subtle)', borderColor: 'var(--cs-border)', color: 'var(--cs-navy)' }}>
-            Back to sign in
-          </Link>
-        </div>
-      </AuthLayout>
-    );
-  }
-
-  return (
-    <AuthLayout>
-      <div style={{ marginBottom: '32px' }}>
-        <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--cs-navy)', marginBottom: '8px' }}>Create your account</h2>
-        <p style={{ fontSize: '14px', color: 'var(--cs-muted)' }}>Get started with AI governance for your cloud providers.</p>
-      </div>
-
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} noValidate>
-        <FormField 
-          id="signup-email" 
-          label="Work email" 
-          type="email" 
-          value={email} 
-          onChange={setEmail} 
-          onBlur={() => setTouchedEmail(true)}
-          error={emailError}
-          placeholder="you@company.com" 
-          disabled={loading} 
-        />
-        
-        <div>
-          <FormField 
-            id="signup-password" 
-            label="Password" 
-            type="password" 
-            value={password} 
-            onChange={setPassword} 
-            placeholder="Create a password" 
-            disabled={loading} 
-          />
-          {password && !isPasswordValid && (
-            <div style={{ background: 'var(--cs-bg-subtle)', padding: '12px', borderRadius: '6px', marginTop: '8px' }}>
-              <p style={{ fontSize: '11px', fontWeight: 600, color: 'var(--cs-navy)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Password must contain:
-              </p>
-              <ul style={{ listStyle: 'none', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                {[
-                  { label: '8+ characters', met: hasLength },
-                  { label: 'Uppercase letter', met: hasUpper },
-                  { label: 'Lowercase letter', met: hasLower },
-                  { label: 'Number', met: hasNumber },
-                ].map((req, i) => (
-                  <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: req.met ? 'var(--cs-success)' : 'var(--cs-muted)' }}>
-                    <Check size={12} style={{ opacity: req.met ? 1 : 0.3 }} /> {req.label}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-
-        <FormField 
-          id="signup-confirm" 
-          label="Confirm Password" 
-          type="password" 
-          value={confirmPassword} 
-          onChange={setConfirmPassword} 
-          onBlur={() => setTouchedConfirm(true)}
-          error={confirmError}
-          placeholder="Confirm your password" 
-          disabled={loading} 
-        />
-
-        {serverError && <AlertBox type="error">{serverError}</AlertBox>}
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
-          <button
-            type="submit"
-            disabled={!isValid || loading}
-            className={`cs-btn cs-btn-primary ${loading ? 'is-loading' : ''}`}
-            style={{ width: '100%', height: '44px', fontSize: '15px' }}
-          >
-            {loading ? <><div className="cs-spinner" style={{ width: '16px', height: '16px' }} /> Creating account…</> : 'Create account'}
-          </button>
-
-          <button
-            type="button"
-            onClick={handleDemoClick}
-            className="cs-btn"
-            style={{ width: '100%', height: '40px', fontSize: '13px', background: 'var(--cs-bg-subtle)', border: '1px solid var(--cs-border)', color: 'var(--cs-navy)', justifyContent: 'center' }}
-          >
-            ⚡ Continue in Demo Mode (Skip Auth)
-          </button>
-        </div>
-      </form>
-
-      <p style={{ textAlign: 'center', marginTop: '24px', fontSize: '14px', color: 'var(--cs-muted)' }}>
-        Already have an account? <Link to="/login" style={{ color: 'var(--cs-blue)', fontWeight: 600, textDecoration: 'none' }}>Sign in</Link>
-      </p>
-    </AuthLayout>
-  );
-}
-
-// ─── Forgot Password ──────────────────────────────────────────────────────────
-
-export function ForgotPasswordForm() {
-  const { forgotPassword } = useAuth();
-  const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [serverError, setServerError] = useState('');
-  const [success, setSuccess] = useState(false);
-  
-  const [touchedEmail, setTouchedEmail] = useState(false);
-  const emailError = touchedEmail && !email ? 'Enter your email address' : 
-                     touchedEmail && !/\S+@\S+\.\S+/.test(email) ? 'Enter a valid email address' : '';
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setTouchedEmail(true);
-    if (!email || emailError) return;
-
-    setLoading(true);
-    setServerError('');
-    try {
-      await forgotPassword(email);
-      setSuccess(true);
-    } catch (err: any) {
-      setServerError(err.message);
-      setLoading(false);
-    }
-  };
-
-  if (success) {
-    return (
-      <AuthLayout>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '50%', background: 'var(--cs-success-bg)', color: 'var(--cs-success)', marginBottom: '24px' }}>
-            <CheckCircle2 size={24} />
-          </div>
-          <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--cs-navy)', marginBottom: '12px' }}>Check your email</h2>
-          <p style={{ fontSize: '15px', color: 'var(--cs-muted)', lineHeight: 1.6, marginBottom: '32px' }}>
-            We sent a password reset link to <strong style={{ color: 'var(--cs-navy)' }}>{email}</strong>.
-          </p>
-          <Link to="/login" className="cs-btn" style={{ width: '100%', background: 'var(--cs-bg-subtle)', borderColor: 'var(--cs-border)', color: 'var(--cs-navy)' }}>
-            Back to sign in
-          </Link>
-        </div>
-      </AuthLayout>
-    );
-  }
-
-  return (
-    <AuthLayout>
-      <div style={{ marginBottom: '32px' }}>
-        <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--cs-navy)', marginBottom: '8px' }}>Reset your password</h2>
-        <p style={{ fontSize: '14px', color: 'var(--cs-muted)' }}>Enter your work email and we'll send you a password reset link.</p>
-      </div>
-
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} noValidate>
-        <FormField 
-          id="forgot-email" 
-          label="Work email" 
-          type="email" 
-          value={email} 
-          onChange={setEmail} 
-          onBlur={() => setTouchedEmail(true)}
-          error={emailError}
-          placeholder="you@company.com" 
-          disabled={loading} 
-        />
-        
-        {serverError && <AlertBox type="error">{serverError}</AlertBox>}
-
-        <button
-          type="submit"
-          disabled={!email || !!emailError || loading}
-          className={`cs-btn cs-btn-primary ${loading ? 'is-loading' : ''}`}
-          style={{ width: '100%', height: '44px', fontSize: '15px', marginTop: '8px' }}
-        >
-          {loading ? <><div className="cs-spinner" style={{ width: '16px', height: '16px' }} /> Sending…</> : 'Send reset link'}
-        </button>
-      </form>
-
-      <p style={{ textAlign: 'center', marginTop: '24px', fontSize: '14px' }}>
-        <Link to="/login" style={{ color: 'var(--cs-muted)', fontWeight: 500, textDecoration: 'none' }}>Back to sign in</Link>
-      </p>
-    </AuthLayout>
-  );
-}
-
-// ─── Reset Password ───────────────────────────────────────────────────────────
-
-export function ResetPasswordForm() {
-  const { updatePassword } = useAuth();
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [serverError, setServerError] = useState('');
-  const [success, setSuccess] = useState(false);
-  
-  const [touchedConfirm, setTouchedConfirm] = useState(false);
-  const confirmError = touchedConfirm && confirmPassword !== password ? 'Passwords don\'t match.' : '';
-
-  const hasLength = password.length >= 8;
-  const hasUpper = /[A-Z]/.test(password);
-  const hasLower = /[a-z]/.test(password);
-  const hasNumber = /[0-9]/.test(password);
-  const isPasswordValid = hasLength && hasUpper && hasLower && hasNumber;
-
-  const isValid = password && isPasswordValid && confirmPassword === password;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setTouchedConfirm(true);
-    if (!isValid) return;
-
-    setLoading(true);
-    setServerError('');
-    try {
-      await updatePassword(password);
-      setSuccess(true);
-    } catch (err: any) {
-      setServerError(err.message);
-      setLoading(false);
-    }
-  };
-
-  if (success) {
-    return (
-      <AuthLayout>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '50%', background: 'var(--cs-success-bg)', color: 'var(--cs-success)', marginBottom: '24px' }}>
-            <CheckCircle2 size={24} />
-          </div>
-          <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--cs-navy)', marginBottom: '12px' }}>Password updated</h2>
-          <p style={{ fontSize: '15px', color: 'var(--cs-muted)', lineHeight: 1.6, marginBottom: '32px' }}>
-            Your password has been updated successfully.
-          </p>
-          <Link to="/login" className="cs-btn cs-btn-primary" style={{ width: '100%' }}>
-            Sign in
-          </Link>
-        </div>
-      </AuthLayout>
-    );
-  }
-
-  return (
-    <AuthLayout>
-      <div style={{ marginBottom: '32px' }}>
-        <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--cs-navy)', marginBottom: '8px' }}>Set a new password</h2>
-        <p style={{ fontSize: '14px', color: 'var(--cs-muted)' }}>Enter your new password below.</p>
-      </div>
-
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} noValidate>
-        <div>
-          <FormField 
-            id="reset-password" 
-            label="New password" 
-            type="password" 
-            value={password} 
-            onChange={setPassword} 
-            placeholder="Create a new password" 
-            disabled={loading} 
-          />
-          {password && !isPasswordValid && (
-            <div style={{ background: 'var(--cs-bg-subtle)', padding: '12px', borderRadius: '6px', marginTop: '8px' }}>
-              <p style={{ fontSize: '11px', fontWeight: 600, color: 'var(--cs-navy)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Password must contain:
-              </p>
-              <ul style={{ listStyle: 'none', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                {[
-                  { label: '8+ characters', met: hasLength },
-                  { label: 'Uppercase letter', met: hasUpper },
-                  { label: 'Lowercase letter', met: hasLower },
-                  { label: 'Number', met: hasNumber },
-                ].map((req, i) => (
-                  <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: req.met ? 'var(--cs-success)' : 'var(--cs-muted)' }}>
-                    <Check size={12} style={{ opacity: req.met ? 1 : 0.3 }} /> {req.label}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-
-        <FormField 
-          id="reset-confirm" 
-          label="Confirm password" 
-          type="password" 
-          value={confirmPassword} 
-          onChange={setConfirmPassword} 
-          onBlur={() => setTouchedConfirm(true)}
-          error={confirmError}
-          placeholder="Confirm your new password" 
-          disabled={loading} 
-        />
-        
-        {serverError && <AlertBox type="error">{serverError}</AlertBox>}
+        {error && <AlertBox type="error">{error}</AlertBox>}
 
         <button
           type="submit"
           disabled={!isValid || loading}
-          className={`cs-btn cs-btn-primary ${loading ? 'is-loading' : ''}`}
-          style={{ width: '100%', height: '44px', fontSize: '15px', marginTop: '8px' }}
+          className="cs-btn cs-btn-primary"
+          style={{ width: '100%' }}
         >
-          {loading ? <><div className="cs-spinner" style={{ width: '16px', height: '16px' }} /> Updating…</> : 'Update password'}
+          {loading ? (
+            <><div className="cs-spinner" style={{ width: '16px', height: '16px' }} /> Signing in…</>
+          ) : (
+            <>SIGN IN <ArrowRight size={16} /></>
+          )}
+        </button>
+      </form>
+
+      <p style={{ marginTop: '24px', textAlign: 'center', fontSize: '13.5px', color: '#5C728D' }}>
+        Don't have an account?{' '}
+        <Link to="/signup" style={{ color: '#0066FF', fontWeight: 700, textDecoration: 'none' }}>
+          Create account
+        </Link>
+      </p>
+
+      <TrustFooter />
+    </AuthLayout>
+  );
+}
+
+// ─── SIGN UP FORM ─────────────────────────────────────────────────────────────
+export function SignupForm() {
+  const { signUp } = useAuth();
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+
+  const confirmError = confirm && confirm !== password ? 'Passwords do not match.' : '';
+  const isValid = email && password.length >= 6 && password === confirm;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isValid) return;
+    setError('');
+    setLoading(true);
+    try {
+      await signUp(email, password);
+      setSuccess(true);
+      setTimeout(() => navigate('/connections'), 1500);
+    } catch (err: unknown) {
+      setError(humanizeAuthError(err instanceof Error ? err.message : 'Sign up failed. Please try again.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const strength = !password ? null : password.length < 6 ? 'weak' : password.length < 10 ? 'fair' : 'strong';
+  const strengthColor = strength === 'weak' ? '#DC2626' : strength === 'fair' ? '#D97706' : '#16A34A';
+  const strengthWidth = strength === 'weak' ? '25%' : strength === 'fair' ? '60%' : '100%';
+
+  return (
+    <AuthLayout>
+      <SecurityBadge />
+      <h2 style={{ fontSize: '26px', fontWeight: 800, color: '#0B1F3A', marginBottom: '6px', letterSpacing: '-0.3px' }}>
+        Create your account
+      </h2>
+      <p style={{ fontSize: '14px', color: '#5C728D', marginBottom: '24px', lineHeight: 1.5 }}>
+        Get started with AI governance for your cloud models.
+      </p>
+
+      {success && (
+        <div style={{ marginBottom: '20px' }}>
+          <AlertBox type="success">Account created successfully. Redirecting…</AlertBox>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }} noValidate>
+        <FormField id="signup-email" label="Work email" type="email" value={email} onChange={setEmail} placeholder="you@company.com" autoComplete="email" disabled={loading} icon="email" />
+
+        <div>
+          <FormField
+            id="signup-password"
+            label="Password"
+            type="password"
+            value={password}
+            onChange={setPassword}
+            placeholder="Min. 6 characters"
+            autoComplete="new-password"
+            disabled={loading}
+            icon="lock"
+          />
+          {strength && (
+            <div style={{ marginTop: '6px' }}>
+              <div style={{ height: '3px', background: '#E8EFF7', borderRadius: '2px', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: strengthWidth, background: strengthColor, transition: 'width 0.3s, background 0.3s', borderRadius: '2px' }} />
+              </div>
+              <p style={{ fontSize: '11px', color: strengthColor, marginTop: '4px', fontWeight: 600 }}>
+                {strength === 'weak' ? 'Too short' : strength === 'fair' ? 'Fair — consider a longer password' : 'Strong password'}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <FormField
+          id="signup-confirm"
+          label="Confirm password"
+          type="password"
+          value={confirm}
+          onChange={setConfirm}
+          placeholder="Re-enter your password"
+          autoComplete="new-password"
+          disabled={loading}
+          error={confirmError}
+          icon="lock"
+        />
+
+        {error && <AlertBox type="error">{error}</AlertBox>}
+
+        <button
+          type="submit"
+          disabled={!isValid || loading}
+          className="cs-btn cs-btn-primary"
+          style={{ width: '100%' }}
+        >
+          {loading ? <><div className="cs-spinner" style={{ width: '16px', height: '16px' }} /> Creating account…</> : <>CREATE ACCOUNT <ArrowRight size={16} /></>}
+        </button>
+      </form>
+
+      <p style={{ marginTop: '24px', textAlign: 'center', fontSize: '13.5px', color: '#5C728D' }}>
+        Already have an account?{' '}
+        <Link to="/login" style={{ color: '#0066FF', fontWeight: 700, textDecoration: 'none' }}>Sign in</Link>
+      </p>
+
+      <TrustFooter />
+    </AuthLayout>
+  );
+}
+
+// ─── FORGOT PASSWORD FORM ─────────────────────────────────────────────────────
+export function ForgotPasswordForm() {
+  const { forgotPassword } = useAuth();
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      await forgotPassword(email);
+      setSent(true);
+    } catch (err: unknown) {
+      setError(humanizeAuthError(err instanceof Error ? err.message : 'Failed to send reset email.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <AuthLayout>
+      <h2 style={{ fontSize: '26px', fontWeight: 800, color: '#0B1F3A', marginBottom: '6px' }}>Reset your password</h2>
+      <p style={{ fontSize: '14px', color: '#5C728D', marginBottom: '28px' }}>
+        Enter your email and we'll send you a password reset link.
+      </p>
+
+      {sent ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <AlertBox type="success">
+            Reset link sent to <strong>{email}</strong>. Check your inbox and follow the instructions.
+          </AlertBox>
+          <Link to="/login" className="cs-btn cs-btn-outline" style={{ width: '100%', textDecoration: 'none' }}>
+            Back to Sign In
+          </Link>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }} noValidate>
+          <FormField id="forgot-email" label="Work email" type="email" value={email} onChange={setEmail} placeholder="you@company.com" autoComplete="email" disabled={loading} icon="email" />
+          {error && <AlertBox type="error">{error}</AlertBox>}
+          <button type="submit" disabled={!email || loading} className="cs-btn cs-btn-primary" style={{ width: '100%' }}>
+            {loading ? <><div className="cs-spinner" style={{ width: '16px', height: '16px' }} /> Sending…</> : 'SEND RESET LINK'}
+          </button>
+          <div style={{ textAlign: 'center' }}>
+            <Link to="/login" style={{ color: '#5C728D', fontSize: '13px', textDecoration: 'underline' }}>
+              Back to Sign In
+            </Link>
+          </div>
+        </form>
+      )}
+    </AuthLayout>
+  );
+}
+
+// ─── RESET PASSWORD FORM ──────────────────────────────────────────────────────
+export function ResetPasswordForm() {
+  const navigate = useNavigate();
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const isValid = password.length >= 6 && password === confirm;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isValid) return;
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      setSuccess(true);
+      setTimeout(() => navigate('/login'), 1500);
+    }, 800);
+  };
+
+  return (
+    <AuthLayout>
+      <h2 style={{ fontSize: '26px', fontWeight: 800, color: '#0B1F3A', marginBottom: '6px' }}>Set new password</h2>
+      <p style={{ fontSize: '14px', color: '#5C728D', marginBottom: '28px' }}>
+        Please enter your new password below.
+      </p>
+
+      {success && <AlertBox type="success">Password updated! Redirecting to login…</AlertBox>}
+
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }} noValidate>
+        <FormField id="reset-pw" label="New Password" type="password" value={password} onChange={setPassword} placeholder="Min. 6 characters" disabled={loading} icon="lock" />
+        <FormField id="reset-confirm" label="Confirm New Password" type="password" value={confirm} onChange={setConfirm} placeholder="Re-enter password" disabled={loading} icon="lock" />
+        <button type="submit" disabled={!isValid || loading} className="cs-btn cs-btn-primary" style={{ width: '100%' }}>
+          {loading ? 'Updating…' : 'UPDATE PASSWORD'}
         </button>
       </form>
     </AuthLayout>
