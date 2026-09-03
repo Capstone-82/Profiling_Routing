@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppHeader } from '../layout/AppHeader';
-import { Footer } from '../layout/Footer';
+
 import type { Model, ModelResponse } from '../../types';
 import {
   getConnection,
@@ -13,6 +13,7 @@ import {
   Send, Clock, DollarSign,
   Activity, AlertCircle, CornerUpLeft, Info,
   Trash2, Lock, CheckCircle2, ChevronDown, Check,
+  ShieldCheck, Cpu, Sparkles, BarChart2, CheckCircle, XCircle, AlertTriangle
 } from 'lucide-react';
 
 // ─── Custom Model Selection Dropdown ──────────────────────────────────────────
@@ -76,7 +77,7 @@ function ModelDropdownSelector({
       >
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
           {selectedModels.length === 0 ? (
-            <span style={{ fontSize: '13.5px', color: '#8EA3BD' }}>Select models to route prompt…</span>
+            <span style={{ fontSize: '13.5px', color: '#8EA3BD' }}>Select models to permit for routing…</span>
           ) : (
             selectedModels.map(m => (
               <span
@@ -150,7 +151,7 @@ function ModelDropdownSelector({
             padding: '10px 14px', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0',
             fontSize: '11px', fontWeight: 700, color: '#5C728D', letterSpacing: '0.04em', textTransform: 'uppercase',
           }}>
-            <span>{models.length} Models Available</span>
+            <span>{models.length} Bedrock Models in Catalog</span>
             <div style={{ display: 'flex', gap: '12px' }}>
               <button
                 type="button"
@@ -161,7 +162,7 @@ function ModelDropdownSelector({
               </button>
               <button
                 type="button"
-                onClick={() => onChange([models[0]?.id || '1'])}
+                onClick={() => onChange([models[0]?.id || 'model-claude-3-5-sonnet'])}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8EA3BD', fontWeight: 600, fontSize: '11px' }}
               >
                 Reset
@@ -196,7 +197,6 @@ function ModelDropdownSelector({
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    {/* Checkbox Icon */}
                     <div style={{
                       width: '18px', height: '18px', borderRadius: '4px',
                       border: `1.5px solid ${isSelected ? '#0066FF' : '#CBD5E1'}`,
@@ -213,9 +213,14 @@ function ModelDropdownSelector({
                         <span style={{ fontSize: '10px', fontWeight: 700, color: '#5C728D', background: '#EEF4FA', padding: '1px 6px', borderRadius: '4px' }}>
                           {m.provider}
                         </span>
+                        {m.category && (
+                          <span style={{ fontSize: '10px', fontWeight: 600, color: '#0066FF', background: '#EBF3FF', padding: '1px 6px', borderRadius: '4px' }}>
+                            {m.category}
+                          </span>
+                        )}
                       </div>
                       <div style={{ fontSize: '11px', color: '#5C728D', marginTop: '1px' }}>
-                        {m.provider} • AWS Bedrock
+                        Context: {m.contextWindow || '128K tokens'}
                       </div>
                     </div>
                   </div>
@@ -229,6 +234,24 @@ function ModelDropdownSelector({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Dimension Bar Gauge Component ────────────────────────────────────────────
+function DimensionBar({ label, value }: { label: string; value: number }) {
+  const percentage = Math.round(value * 100);
+  const color = percentage <= 25 ? '#10B981' : percentage <= 50 ? '#3B82F6' : percentage <= 75 ? '#F59E0B' : '#EF4444';
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#475569' }}>
+        <span>{label}</span>
+        <span style={{ fontWeight: 700, color }}>{value.toFixed(2)}</span>
+      </div>
+      <div style={{ width: '100%', height: '5px', background: '#E2E8F0', borderRadius: '999px', overflow: 'hidden' }}>
+        <div style={{ width: `${percentage}%`, height: '100%', background: color, borderRadius: '999px', transition: 'width 0.3s ease' }} />
+      </div>
     </div>
   );
 }
@@ -250,14 +273,18 @@ function ResponsePanel({
   onClear: () => void;
 }) {
   return (
-    <div className="cs-card" style={{ display: 'flex', flexDirection: 'column', minHeight: '520px', position: 'relative' }}>
+    <div className="cs-card" style={{ display: 'flex', flexDirection: 'column', minHeight: '560px', position: 'relative' }}>
       {/* Panel header */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '14px 20px',
         borderBottom: '1px solid #EEF4FA',
       }}>
-        <span style={{ fontSize: '14px', fontWeight: 800, color: '#0B1F3A' }}>Response</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Sparkles size={16} style={{ color: '#0066FF' }} />
+          <span style={{ fontSize: '14px', fontWeight: 800, color: '#0B1F3A' }}>Routed Response & Insights</span>
+        </div>
+
         {state === 'success' && response && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: '6px',
@@ -266,13 +293,13 @@ function ResponsePanel({
             fontSize: '11px', fontWeight: 700, color: '#15803D',
           }}>
             <CheckCircle2 size={12} />
-            {response.model_used_name}
+            Answered by: {response.model_used_name} ({response.tier || 'T1'})
           </div>
         )}
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, padding: '20px', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto' }}>
         {/* Empty State */}
         {state === 'empty' && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '40px 20px' }}>
@@ -285,10 +312,10 @@ function ResponsePanel({
               <CornerUpLeft size={22} />
             </div>
             <p style={{ fontSize: '15px', fontWeight: 700, color: '#0B1F3A', marginBottom: '6px' }}>
-              Your model response will appear here.
+              Your intelligent model response will appear here.
             </p>
-            <p style={{ fontSize: '13px', color: '#5C728D', maxWidth: '320px', lineHeight: 1.5 }}>
-              Select models from the dropdown and enter a prompt to get started.
+            <p style={{ fontSize: '13px', color: '#5C728D', maxWidth: '360px', lineHeight: 1.5 }}>
+              Enter a prompt. The engine will evaluate governance policies, profile semantic complexity, and route to the cost-optimal model on AWS Bedrock.
             </p>
           </div>
         )}
@@ -298,7 +325,7 @@ function ResponsePanel({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingTop: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', color: '#0066FF', fontWeight: 600, marginBottom: '8px' }}>
               <span className="cs-spinner cs-spinner-blue" />
-              Routing request to best available Bedrock model…
+              Evaluating governance → Profiling complexity → Routing to optimal model…
             </div>
             {[100, 85, 92, 70, 88, 55].map((w, i) => (
               <div key={i} className="cs-skeleton" style={{ height: '14px', width: `${w}%` }} />
@@ -308,16 +335,120 @@ function ResponsePanel({
 
         {/* Success State */}
         {state === 'success' && response && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
-            <div style={{ fontSize: '14px', color: '#0B1F3A', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
-              {response.text}
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', flex: 1 }}>
+            
+            {/* 1. Governance Evaluations Bar */}
+            {response.governance_evaluations && response.governance_evaluations.length > 0 && (
+              <div style={{
+                background: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                borderRadius: '8px',
+                padding: '10px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+                  <ShieldCheck size={14} style={{ color: '#0066FF' }} /> Governance Policy Evaluations
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {response.governance_evaluations.map((ev, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        background: ev.passed ? '#ECFDF5' : (ev.mode === 'dry_run' ? '#FEF3C7' : '#FEE2E2'),
+                        border: `1px solid ${ev.passed ? '#A7F3D0' : (ev.mode === 'dry_run' ? '#FDE68A' : '#FECACA')}`,
+                        color: ev.passed ? '#065F46' : (ev.mode === 'dry_run' ? '#92400E' : '#991B1B'),
+                      }}
+                      title={ev.message}
+                    >
+                      {ev.passed ? <CheckCircle size={12} /> : (ev.mode === 'dry_run' ? <AlertTriangle size={12} /> : <XCircle size={12} />)}
+                      <span>{ev.rule_type.replace('_', ' ')} ({ev.mode}): {ev.passed ? 'Passed' : 'Flagged'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 2. Profiling & Routing Explanation Card */}
+            {response.profile_summary && (
+              <div style={{
+                background: '#F0F7FF',
+                border: '1px solid #BFDBFE',
+                borderRadius: '8px',
+                padding: '12px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 700, color: '#1E40AF', textTransform: 'uppercase' }}>
+                    <BarChart2 size={14} /> Prompt Complexity & Tier
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#1E40AF', background: '#DBEAFE', padding: '2px 8px', borderRadius: '4px' }}>
+                    Tier: {response.profile_summary.resolved_tier} (Score: {response.profile_summary.complexity_score.toFixed(3)})
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '12px' }}>
+                  <div>
+                    <span style={{ color: '#64748B', fontSize: '11px' }}>Domain:</span>{' '}
+                    <strong style={{ color: '#0F172A' }}>{response.profile_summary.domain}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748B', fontSize: '11px' }}>Intent:</span>{' '}
+                    <strong style={{ color: '#0F172A' }}>{response.profile_summary.intent}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748B', fontSize: '11px' }}>Task Type:</span>{' '}
+                    <strong style={{ color: '#0F172A' }}>{response.profile_summary.task_type}</strong>
+                  </div>
+                </div>
+
+                {/* Dimensions */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px', borderTop: '1px dashed #BFDBFE', paddingTop: '8px' }}>
+                  <DimensionBar label="D1 Semantic Complexity" value={response.profile_summary.dimensions.d1_semantic_complexity} />
+                  <DimensionBar label="D2 Domain Specificity" value={response.profile_summary.dimensions.d2_domain_specificity} />
+                  <DimensionBar label="D3 Output Formality" value={response.profile_summary.dimensions.d3_output_formality} />
+                  <DimensionBar label="D4 Research Dependency" value={response.profile_summary.dimensions.d4_research_dependency} />
+                </div>
+              </div>
+            )}
+
+            {/* 3. Routing Reasons */}
+            {response.routing_reason && response.routing_reason.length > 0 && (
+              <div style={{ fontSize: '12px', color: '#475569', background: '#F8FAFC', padding: '8px 12px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                <strong style={{ color: '#0F172A', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '4px' }}>
+                  <Cpu size={13} style={{ color: '#0066FF' }} /> Why this model was chosen:
+                </strong>
+                <ul style={{ margin: 0, paddingLeft: '18px', lineHeight: 1.4 }}>
+                  {response.routing_reason.map((r, i) => (
+                    <li key={i}>{r}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Fallback Notice */}
             {response.fallback_used && (
               <div style={{ display: 'flex', gap: '8px', padding: '10px 14px', background: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: '8px', fontSize: '12px', color: '#B45309' }}>
                 <Info size={14} style={{ flexShrink: 0, marginTop: '1px', color: '#D97706' }} />
-                Primary model failed — automatically routed to <strong>{response.model_used_name}</strong> as fallback.
+                Primary model failed ({response.fallback_from}) — automatically routed to <strong>{response.model_used_name}</strong> as fallback.
               </div>
             )}
+
+            {/* Main Generated Text */}
+            <div style={{ fontSize: '14px', color: '#0B1F3A', lineHeight: 1.7, whiteSpace: 'pre-wrap', background: '#FFFFFF', padding: '12px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+              {response.text}
+            </div>
+
           </div>
         )}
 
@@ -328,7 +459,7 @@ function ResponsePanel({
               <AlertCircle size={22} />
             </div>
             <p style={{ fontSize: '15px', fontWeight: 700, color: '#991B1B', marginBottom: '6px' }}>Unable to generate a response.</p>
-            <p style={{ fontSize: '13px', color: '#B91C1C', marginBottom: '18px', maxWidth: '280px', lineHeight: 1.5 }}>{error}</p>
+            <p style={{ fontSize: '13px', color: '#B91C1C', marginBottom: '18px', maxWidth: '340px', lineHeight: 1.5 }}>{error}</p>
             {onRetry && (
               <button onClick={onRetry} className="cs-btn cs-btn-outline cs-btn-sm">
                 Try again
@@ -358,9 +489,9 @@ function ResponsePanel({
                 <Activity size={12} style={{ color: '#8EA3BD' }} /> {response.tokens_used} tokens
               </span>
             )}
-            {response.estimated_cost !== undefined && (
+            {response.cost_estimate !== undefined && (
               <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#5C728D' }}>
-                <DollarSign size={12} style={{ color: '#8EA3BD' }} /> ~${response.estimated_cost.toFixed(5)}
+                <DollarSign size={12} style={{ color: '#8EA3BD' }} /> Est: ~${response.cost_estimate.toFixed(6)}
               </span>
             )}
           </div>
@@ -389,6 +520,7 @@ export function PlaygroundPage() {
   const [connectionVerified, setConnectionVerified] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [prompt, setPrompt] = useState('');
+  const [routingMode, setRoutingMode] = useState<'auto' | 'legacy'>('auto');
   const [responseState, setResponseState] = useState<ResponseState>('empty');
   const [response, setResponse] = useState<ModelResponse | undefined>();
   const [errorMsg, setErrorMsg] = useState('');
@@ -401,7 +533,7 @@ export function PlaygroundPage() {
     getAvailableModels().then(ms => {
       const list = ms.length > 0 ? ms : MOCK_AVAILABLE_MODELS;
       setModels(list);
-      setSelectedIds([list[0]?.id || 'model-1']);
+      setSelectedIds(list.map(m => m.id)); // Default: allow all available Bedrock models
       setLoadingModels(false);
     });
   }, []);
@@ -414,7 +546,11 @@ export function PlaygroundPage() {
     setResponse(undefined);
     setErrorMsg('');
     try {
-      const result = await sendPrompt({ prompt, selectedModelIds: selectedIds });
+      const result = await sendPrompt({
+        prompt,
+        selectedModelIds: selectedIds,
+        mode: routingMode
+      });
       setResponse(result);
       setResponseState('success');
     } catch (err: unknown) {
@@ -434,14 +570,67 @@ export function PlaygroundPage() {
     <div style={{ minHeight: '100vh', background: 'var(--cs-gray-bg)', display: 'flex', flexDirection: 'column' }}>
       <AppHeader activePath="/playground" />
 
-      <main style={{ maxWidth: '1280px', width: '100%', margin: '0 auto', padding: '40px 24px', flex: 1 }}>
+      <main style={{ maxWidth: '1280px', width: '100%', margin: '0 auto', padding: '36px 24px', flex: 1 }}>
 
-        {/* Page heading */}
-        <div style={{ marginBottom: '28px' }}>
-          <h1 className="cs-heading" style={{ fontSize: '28px' }}>AI Playground</h1>
-          <p style={{ fontSize: '14px', color: '#5C728D', marginTop: '12px', lineHeight: 1.6 }}>
-            Route prompts across connected foundation models.
-          </p>
+        {/* Page heading with Mode Switcher */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+          <div>
+            <h1 className="cs-heading" style={{ fontSize: '28px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              AI Governance & Routing Playground
+            </h1>
+            <p style={{ fontSize: '14px', color: '#5C728D', marginTop: '6px', lineHeight: 1.5 }}>
+              Prompt Profiler + Multi-Gate Model Routing + Bedrock Dispatch using your AWS Account.
+            </p>
+          </div>
+
+          {/* Mode Pill Switcher */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            background: '#E2E8F0',
+            padding: '3px',
+            borderRadius: '999px',
+            border: '1px solid #CBD5E1'
+          }}>
+            <button
+              type="button"
+              onClick={() => setRoutingMode('auto')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: '999px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '12.5px',
+                fontWeight: 700,
+                background: routingMode === 'auto' ? '#0066FF' : 'transparent',
+                color: routingMode === 'auto' ? '#FFFFFF' : '#475569',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <Sparkles size={14} /> Auto-Routed (Enforced)
+            </button>
+            <button
+              type="button"
+              onClick={() => setRoutingMode('legacy')}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '999px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '12.5px',
+                fontWeight: 700,
+                background: routingMode === 'legacy' ? '#FFFFFF' : 'transparent',
+                color: routingMode === 'legacy' ? '#0F172A' : '#475569',
+                boxShadow: routingMode === 'legacy' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              Manual / Legacy Mode
+            </button>
+          </div>
         </div>
 
         {/* No connection warning */}
@@ -454,13 +643,13 @@ export function PlaygroundPage() {
           }}>
             <Lock size={16} style={{ color: '#D97706', flexShrink: 0 }} />
             <div>
-              <p style={{ fontSize: '13px', fontWeight: 700, color: '#78350F' }}>No provider connected</p>
+              <p style={{ fontSize: '13px', fontWeight: 700, color: '#78350F' }}>Demo Simulation Mode (AWS Bedrock Disconnected)</p>
               <p style={{ fontSize: '12px', color: '#92400E', marginTop: '2px' }}>
-                Connect AWS Bedrock on the{' '}
+                Connect your AWS IAM Role on the{' '}
                 <button onClick={() => navigate('/connections')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#0066FF', fontWeight: 700, fontSize: '12px', padding: 0, textDecoration: 'underline' }}>
                   Connections page
                 </button>
-                {' '}to enable prompt routing.
+                {' '}to dispatch requests directly to your own Bedrock billing.
               </p>
             </div>
           </div>
@@ -472,13 +661,17 @@ export function PlaygroundPage() {
           {/* LEFT: Controls */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-            {/* Model Selector Card (Dropdown) */}
+            {/* Model Selector Card */}
             <div className="cs-card" style={{ padding: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                 <div>
-                  <h2 style={{ fontSize: '14px', fontWeight: 800, color: '#0B1F3A' }}>Select Target Models</h2>
+                  <h2 style={{ fontSize: '14px', fontWeight: 800, color: '#0B1F3A' }}>
+                    {routingMode === 'auto' ? 'Permitted Model Allow-List' : 'Target Models'}
+                  </h2>
                   <p style={{ fontSize: '12px', color: '#5C728D', marginTop: '2px' }}>
-                    Choose models from your connected AWS Bedrock provider.
+                    {routingMode === 'auto'
+                      ? 'The routing engine will score and pick the optimal model from this permitted list.'
+                      : 'Manually select which model should answer your prompt.'}
                   </p>
                 </div>
                 {selectedIds.length > 0 && (
@@ -487,7 +680,7 @@ export function PlaygroundPage() {
                     background: '#EBF3FF', border: '1px solid #BFD7FF',
                     padding: '3px 10px', borderRadius: '999px',
                   }}>
-                    {selectedIds.length} selected
+                    {selectedIds.length} permitted
                   </span>
                 )}
               </div>
@@ -511,7 +704,7 @@ export function PlaygroundPage() {
               <textarea
                 value={prompt}
                 onChange={e => setPrompt(e.target.value)}
-                placeholder="Enter your prompt..."
+                placeholder="Enter prompt (e.g. 'Design a multi-cloud enterprise architecture with compliance risk assessment...')"
                 rows={7}
                 aria-label="Prompt input"
                 style={{
@@ -560,9 +753,9 @@ export function PlaygroundPage() {
                   aria-label="Send prompt"
                 >
                   {responseState === 'loading' ? (
-                    <><span className="cs-spinner" style={{ width: '15px', height: '15px' }} /> Routing request…</>
+                    <><span className="cs-spinner" style={{ width: '15px', height: '15px' }} /> Profiling & Routing…</>
                   ) : (
-                    <><Send size={15} /> Send Prompt</>
+                    <><Send size={15} /> Route Prompt</>
                   )}
                 </button>
               </div>
@@ -583,7 +776,6 @@ export function PlaygroundPage() {
 
         </div>
       </main>
-      <Footer />
     </div>
   );
 }

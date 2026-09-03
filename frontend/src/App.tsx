@@ -4,6 +4,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { LoginForm, SignupForm, ForgotPasswordForm, ResetPasswordForm } from './components/auth/AuthForms';
 import { ConnectionsPage } from './components/connections/ConnectionsPage';
 import { PlaygroundPage } from './components/playground/PlaygroundPage';
+import { GovernancePage } from './components/governance/GovernancePage';
+import { ModelsPage } from './components/models/ModelsPage';
 import { getConnection } from './services/mock/mockService';
 
 // ─── Full-screen loader ───────────────────────────────────────────────────────
@@ -95,7 +97,7 @@ export default function App() {
             element={<RequireAuth><ConnectionsPage /></RequireAuth>}
           />
 
-          {/* Protected: playground — also requires verified connection */}
+          {/* Protected: playground */}
           <Route
             path="/playground"
             element={
@@ -103,6 +105,26 @@ export default function App() {
                 <RequireConnection>
                   <PlaygroundPage />
                 </RequireConnection>
+              </RequireAuth>
+            }
+          />
+
+          {/* Protected: Governance policies management */}
+          <Route
+            path="/governance"
+            element={
+              <RequireAuth>
+                <GovernancePage />
+              </RequireAuth>
+            }
+          />
+
+          {/* Protected: Bedrock Model Registry */}
+          <Route
+            path="/models"
+            element={
+              <RequireAuth>
+                <ModelsPage />
               </RequireAuth>
             }
           />

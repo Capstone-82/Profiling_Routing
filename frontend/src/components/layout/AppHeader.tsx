@@ -22,7 +22,9 @@ export function AppHeader({ activePath }: AppHeaderProps) {
   const navLinks = [
     { to: '/connections', label: 'Connections' },
     { to: '/playground', label: 'AI Playground' },
+    { to: '/models', label: 'Model Registry' },
   ];
+
 
   return (
     <header
