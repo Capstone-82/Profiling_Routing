@@ -21,7 +21,9 @@ class PromptProfile:
 
 @dataclass
 class ModelCandidate:
-    model_id: str
+    model_id: str                   # router_model_id (e.g. anthropic-claude-3-5-sonnet-v2)
+    bedrock_model_id: str           # bedrock_model_id (e.g. anthropic.claude-3-5-sonnet-20241022-v2:0)
+    display_name: str               # display_name (e.g. Claude 3.5 Sonnet v2)
     provider: str
     generation: str                 # current/previous/legacy
     tier: str
@@ -35,17 +37,17 @@ class ModelCandidate:
     domain_strengths: List[str]
     manual_escalation_only: bool = False
     total_context_tokens: Optional[int] = None
-    api_model_id: Optional[str] = None
     lifecycle_status: str = "active"
-    verification_status: str = "Needs Manual Verification"
     capability_tags: List[str] = field(default_factory=list)
     latency_slo_ms: Optional[int] = None
-    availability_status: str = "unknown"
+    availability_status: str = "available"
 
 @dataclass
 class ModelRecommendation:
     rank: int
-    model_id: str
+    model_id: str                   # router_model_id
+    bedrock_model_id: str           # bedrock_model_id
+    display_name: str               # display_name
     provider: str
     tier: str
     estimated_cost_usd: float

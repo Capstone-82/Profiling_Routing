@@ -9,7 +9,8 @@ from app.services.supabase_service import ensure_uuid, get_supabase_headers
 from app.services.routing.router import count_input_tokens
 
 class GovernanceRuleConfig(BaseModel):
-    # allow_list
+    # allow_list (Bedrock provider model IDs)
+    allowed_bedrock_model_ids: Optional[List[str]] = None
     allowed_models: Optional[List[str]] = None
     
     # context_window
@@ -21,17 +22,17 @@ class GovernanceRuleConfig(BaseModel):
     # throttle
     rate_limit_rpm: Optional[int] = 60         # Requests per minute
     burst_limit: Optional[int] = 10            # Max concurrent / burst in short window
-    quota_per_day_tokens: Optional[int] = 2000000 # 2M tokens/day
-    quota_per_day_requests: Optional[int] = 1000
+    quota_per_day_tokens: Optional[int] = 5000000 # 5M tokens/day
+    quota_per_day_requests: Optional[int] = 2000
 
 class GovernanceRule(BaseModel):
     id: Optional[str] = None
     org_id: str
-    rule_type: str    # 'allow_list' | 'throttle' | 'context_window' | 'moderation' | 'io_tokens'
+    rule_type: str    # 'allow_list' | 'throttle' | 'context_window'
     scope: str = "org" # 'org' | 'application' | 'user'
     scope_target: Optional[str] = None
     config: Dict[str, Any] = Field(default_factory=dict)
-    mode: str = "dry_run" # 'dry_run' | 'enforce'
+    mode: str = "enforce" # 'dry_run' | 'enforce'
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -46,7 +47,7 @@ class GovernanceResult(BaseModel):
     passed: bool
     blocked_by_enforce: bool
     evaluations: List[GovernanceEvaluation]
-    allowed_models: Optional[List[str]] = None
+    allowed_bedrock_model_ids: List[str] = Field(default_factory=list)
     estimated_input_tokens: int = 0
 
 
@@ -122,17 +123,18 @@ DEFAULT_GOVERNANCE_RULES = [
         "rule_type": "allow_list",
         "mode": "enforce",
         "config": {
-            "allowed_models": [
-                "claude-sonnet-5",
-                "claude-haiku-4-5-20251001",
-                "claude-opus-5",
-                "amazon-nova-pro",
-                "amazon-nova-lite",
-                "amazon-nova-micro",
-                "llama-3.3-70b",
-                "llama-4-scout",
-                "mistral-large-3",
-                "mistral-small"
+            "allowed_bedrock_model_ids": [
+                "anthropic.claude-3-5-sonnet-20241022-v2:0",
+                "anthropic.claude-3-5-haiku-20241022-v1:0",
+                "anthropic.claude-3-opus-20240229-v1:0",
+                "amazon.nova-pro-v1:0",
+                "amazon.nova-lite-v1:0",
+                "amazon.nova-micro-v1:0",
+                "meta.llama3-3-70b-instruct-v1:0",
+                "meta.llama3-1-8b-instruct-v1:0",
+                "mistral.mistral-large-2407-v1:0",
+                "mistral.mistral-small-2402-v1:0",
+                "mistral.codestral-2501-v1:0"
             ]
         }
     }
@@ -215,11 +217,10 @@ class GovernanceService:
         self,
         org_id: str,
         prompt: str,
-        user_specified_models: Optional[List[str]] = None,
         max_tokens: Optional[int] = None
     ) -> GovernanceResult:
         """
-        Executes governance evaluations (Context Window, Throttle, Allow-list) against the prompt.
+        Pure evaluation of governance policies against prompt without mutating usage counters.
         """
         rules = await self.get_rules_for_org(org_id)
         est_tokens = count_input_tokens(prompt)
@@ -227,7 +228,7 @@ class GovernanceService:
 
         evaluations: List[GovernanceEvaluation] = []
         blocked_by_enforce = False
-        allowed_models_result: Optional[List[str]] = None
+        allowed_bedrock_ids: List[str] = []
 
         for rule in rules:
             cfg = rule.config or {}
@@ -293,14 +294,15 @@ class GovernanceService:
                 ))
 
             elif rule.rule_type == "allow_list":
-                allowed = cfg.get("allowed_models", [])
-                allowed_models_result = allowed
+                # Check allowed_bedrock_model_ids or allowed_models
+                allowed = cfg.get("allowed_bedrock_model_ids") or cfg.get("allowed_models") or []
+                allowed_bedrock_ids = allowed
                 passed = True
-                msg = f"Allow-list policy active ({len(allowed)} models permitted)."
+                msg = f"Allow-list policy active ({len(allowed)} Bedrock models permitted)."
 
                 if not allowed:
                     passed = False
-                    msg = "Allow-list is empty. No models permitted."
+                    msg = "Allow-list is empty. No Bedrock models permitted."
 
                 if not passed and mode == "enforce":
                     blocked_by_enforce = True
@@ -315,16 +317,21 @@ class GovernanceService:
 
         overall_passed = not blocked_by_enforce
 
-        # Record this request for throttling metrics
-        throttle_tracker.record_request(org_id, est_tokens)
-
         return GovernanceResult(
             passed=overall_passed,
             blocked_by_enforce=blocked_by_enforce,
             evaluations=evaluations,
-            allowed_models=allowed_models_result,
+            allowed_bedrock_model_ids=allowed_bedrock_ids,
             estimated_input_tokens=est_tokens
         )
+
+    def record_request_attempt(self, org_id: str, tokens: int = 0):
+        """Mutate throttle and usage counters upon route invocation attempt."""
+        throttle_tracker.record_request(org_id, tokens)
+
+    def record_successful_usage(self, org_id: str, tokens: int = 0):
+        """Record completed token usage."""
+        throttle_tracker.record_request(org_id, tokens)
 
 
 governance_service = GovernanceService()

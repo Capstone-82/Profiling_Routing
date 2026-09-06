@@ -1,6 +1,11 @@
+from __future__ import annotations
 import re
-import numpy as np
-import pandas as pd
+try:
+    import numpy as np
+    import pandas as pd
+except ImportError:
+    np = None
+    pd = None
 
 SCORE_COLS = ['d1', 'd2', 'd3', 'd4', 'd5']
 VALID_SCORES = [0.0, 0.25, 0.5, 0.75, 1.0]

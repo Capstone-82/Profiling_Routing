@@ -45,11 +45,13 @@ class GovernanceRuleSchema(BaseModel):
 
 class PromptRequest(BaseModel):
     prompt: str
+    guessed_bedrock_model_id: Optional[str] = None
+    max_tokens: Optional[int] = 1500
+    retry_bedrock_model_id: Optional[str] = None
+    # Backward-compatibility fields
     selectedModelIds: Optional[List[str]] = []
     preferredModelId: Optional[str] = None
     preferred_model_id: Optional[str] = None
-    max_tokens: Optional[int] = None
-    mode: Optional[str] = "auto"  # 'auto' | 'legacy'
     enterprise_criticality: Optional[str] = "standard"
 
 class DimensionBreakdown(BaseModel):
@@ -75,8 +77,9 @@ class ProfileSummarySchema(BaseModel):
 
 class ModelRecommendationSchema(BaseModel):
     rank: int
-    model_id: str
-    bedrock_model_id: Optional[str] = None
+    model_id: str                   # router model id
+    bedrock_model_id: str           # bedrock model id
+    display_name: str               # display name
     provider: str
     tier: str
     estimated_cost_usd: float
@@ -86,26 +89,21 @@ class ModelRecommendationSchema(BaseModel):
 
 class ModelResponse(BaseModel):
     text: str
-    model_used: str               # Bedrock model ID (e.g. anthropic.claude-3-5-sonnet-20241022-v2:0)
-    model_used_name: str          # Display name (e.g. Claude 3.5 Sonnet)
-    routed_model_id: str          # Friendly ID (e.g. claude-sonnet-5)
-    user_selected_model: Optional[str] = None
-    user_selected_model_name: Optional[str] = None
-    comparison_insight: Optional[str] = None
-    routing_reason: List[str] = []
-    tier: str = "T1"
-    complexity_score: float = 0.0
+    model_used: str                 # Bedrock model ID (e.g. anthropic.claude-3-5-sonnet-20241022-v2:0)
+    model_used_name: str            # Display name (e.g. Claude 3.5 Sonnet v2)
+    routed_model_id: Optional[str] = None
+    profile_summary: Optional[ProfileSummarySchema] = None
+    governance_evaluations: List[GovernanceEvaluationSchema] = []
+    recommendations: List[ModelRecommendationSchema] = []
+    user_guess: Optional[Dict[str, Any]] = None
+    warnings: List[str] = []
+    invocation_error: Optional[str] = None
+    tier: Optional[str] = None
+    complexity_score: Optional[float] = None
     cost_estimate: Optional[float] = None
     tokens_used: Optional[int] = None
     latency_ms: Optional[float] = None
-    fallback_used: bool = False
-    fallback_from: Optional[str] = None
-    fallback_chain: Optional[List[str]] = []
-    fallback_count: Optional[int] = 0
-    governance_evaluations: List[GovernanceEvaluationSchema] = []
-    profile_summary: Optional[ProfileSummarySchema] = None
-    recommendations: List[ModelRecommendationSchema] = []
-    warnings: List[str] = []
+    routing_reason: List[str] = []
 
 class ProfileOnlyResponse(BaseModel):
     profile: ProfileSummarySchema

@@ -1,12 +1,19 @@
-import type { Connection, Model, ModelResponse, PromptRequest } from '../types';
+import type {
+  Connection,
+  Model,
+  ModelResponse,
+  PromptRequest,
+  ProfileOnlyResponse,
+  GovernanceRule,
+} from '../types';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api';
 
 export async function fetchConnectionFromBackend(userId?: string): Promise<Connection | null> {
   try {
     const headers: Record<string, string> = {};
     if (userId) headers['X-User-ID'] = userId;
-    
+
     const res = await fetch(`${API_BASE}/connection`, {
       method: 'GET',
       headers,
@@ -14,7 +21,7 @@ export async function fetchConnectionFromBackend(userId?: string): Promise<Conne
     if (!res.ok) return null;
     const data = await res.json();
     return data as Connection;
-  } catch (err) {
+  } catch {
     return null;
   }
 }
@@ -35,7 +42,7 @@ export async function testConnectionViaBackend(roleArn: string, userId?: string)
     if (!res.ok) return null;
     const data = await res.json();
     return data as Connection;
-  } catch (err) {
+  } catch {
     return null;
   }
 }
@@ -64,7 +71,59 @@ export async function fetchAllowedCatalog(): Promise<Model[]> {
   }
 }
 
-export async function sendPromptToBackend(req: PromptRequest, userId?: string): Promise<ModelResponse> {
+export async function fetchGovernanceRules(userId?: string): Promise<GovernanceRule[]> {
+  try {
+    const headers: Record<string, string> = {};
+    if (userId) headers['X-User-ID'] = userId;
+    const res = await fetch(`${API_BASE}/governance/rules`, {
+      method: 'GET',
+      headers,
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function saveGovernanceRule(rule: GovernanceRule, userId?: string): Promise<GovernanceRule> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (userId) headers['X-User-ID'] = userId;
+  const res = await fetch(`${API_BASE}/governance/rules`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(rule),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({ detail: 'Failed to save rule' }));
+    throw new Error(errData.detail || `Server error (${res.status})`);
+  }
+  return await res.json();
+}
+
+export async function profilePrompt(req: PromptRequest, userId?: string): Promise<ProfileOnlyResponse> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (userId) headers['X-User-ID'] = userId;
+
+  const res = await fetch(`${API_BASE}/prompt/profile`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(req),
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({ detail: 'Failed to profile prompt' }));
+    throw new Error(errData.detail || `Server error (${res.status})`);
+  }
+
+  return await res.json();
+}
+
+export async function routePrompt(req: PromptRequest, userId?: string): Promise<ModelResponse> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
@@ -83,3 +142,6 @@ export async function sendPromptToBackend(req: PromptRequest, userId?: string): 
 
   return await res.json();
 }
+
+// Backward compatibility alias
+export const sendPromptToBackend = routePrompt;

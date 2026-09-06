@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException, Header
 
 from app.schemas import (
@@ -22,10 +22,12 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/prompt", tags=["Prompt Routing"])
 
+
 @router.get("/catalog", response_model=List[ModelSchema])
 async def get_allowed_bedrock_catalog():
     """Returns the hardcoded, maintained allowed Bedrock model catalog."""
     return model_mapping_service.get_allowed_catalog()
+
 
 @router.post("/profile", response_model=ProfileOnlyResponse)
 async def profile_prompt(
@@ -34,36 +36,54 @@ async def profile_prompt(
 ):
     """
     Profiles prompt and returns routing recommendations without invoking AWS Bedrock.
-    Useful for testing and governance previews.
+    Evaluates governance context window and throttle policies purely without recording usage.
     """
     user_id = x_user_id or "demo-user-uuid"
 
-    # 1. Run Governance evaluations
+    # Step 1: Verify customer AWS Bedrock connection
+    conn = await get_connection(x_user_id=user_id)
+    if conn.status != "verified":
+        raise HTTPException(
+            status_code=403,
+            detail="AWS Bedrock connection not verified. Please connect an IAM Role on the Connections page before routing prompts."
+        )
+
+    connected_bedrock_ids = [m.providerModelId for m in conn.availableModels]
+    if not connected_bedrock_ids:
+        raise HTTPException(
+            status_code=403,
+            detail="No accessible Bedrock models detected for your verified AWS IAM role."
+        )
+
+    # Step 2: Run pure governance evaluations
     gov_result = await governance_service.evaluate_prompt(
         org_id=user_id,
         prompt=req.prompt,
-        user_specified_models=req.selectedModelIds,
         max_tokens=req.max_tokens
     )
 
-    # 2. Intersect candidates: Connected Bedrock models ∩ Governance allow-list
-    conn = await get_connection(x_user_id=user_id)
-    connected_bedrock_ids = [m.providerModelId for m in conn.availableModels] if conn.status == "verified" else []
-    
-    # If no connection verified yet, use all mapped Bedrock models for demo
-    if not connected_bedrock_ids:
-        connected_bedrock_ids = list(model_mapping_service.bedrock_to_friendly.keys())
+    allowed_bedrock_ids = gov_result.allowed_bedrock_model_ids
+    if not allowed_bedrock_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="Governance Allow-list is empty. Please enable at least one Bedrock model in Governance settings."
+        )
 
-    candidate_friendly_ids, mapping_warnings = model_mapping_service.intersect_candidates(
-        user_selected_friendly_or_bedrock_ids=None,
-        connected_bedrock_model_ids=connected_bedrock_ids,
-        allow_listed_friendly_ids=gov_result.allowed_models,
-    )
+    # Step 3: Intersect: connected Bedrock models ∩ allowed Bedrock models
+    candidate_bedrock_ids = [b for b in connected_bedrock_ids if b in allowed_bedrock_ids]
+    if not candidate_bedrock_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="No models available that are both enabled on your AWS account and permitted by your Governance Allow-list."
+        )
 
-    # 3. Route prompt against allowed models
+    # Convert Bedrock candidate IDs to Router model IDs
+    candidate_router_ids = model_mapping_service.to_router_ids(candidate_bedrock_ids)
+
+    # Step 4: Route prompt across candidate pool only
     routing_result = routing_service.route(
         prompt=req.prompt,
-        allowed_model_ids=candidate_friendly_ids,
+        allowed_model_ids=candidate_router_ids,
         max_tokens=req.max_tokens,
         enterprise_criticality=req.enterprise_criticality or "standard",
         top_n=3,
@@ -93,11 +113,11 @@ async def profile_prompt(
 
     recs = []
     for r in routing_result.recommendations:
-        b_id = model_mapping_service.get_bedrock_id(r.model_id)
         recs.append(ModelRecommendationSchema(
             rank=r.rank,
             model_id=r.model_id,
-            bedrock_model_id=b_id,
+            bedrock_model_id=r.bedrock_model_id,
+            display_name=r.display_name,
             provider=r.provider,
             tier=r.tier,
             estimated_cost_usd=r.estimated_cost_usd,
@@ -122,8 +142,9 @@ async def profile_prompt(
         recommendations=recs,
         rejections=routing_result.rejections,
         governance_evaluations=gov_schemas,
-        warnings=routing_result.warnings + mapping_warnings
+        warnings=routing_result.warnings
     )
+
 
 @router.post("", response_model=ModelResponse)
 @router.post("/route", response_model=ModelResponse)
@@ -132,23 +153,71 @@ async def route_and_invoke_prompt(
     x_user_id: Optional[str] = Header(None, alias="X-User-ID")
 ):
     """
-    Main End-to-End pipeline:
-    1. Governance check (allow-list, throttling, context window)
-    2. Prompt Profiling & Complexity evaluation
-    3. Optimal Model Routing across all Allowed Bedrock Models (recommends top 3)
-    4. Invocation dispatch: Top 1 -> fallback to Top 2 -> fallback to Top 3
-    5. Response Normalization, Benchmark Insight, & Audit metadata
+    Production Bedrock Routing Pipeline:
+    1. Resolve user ID from X-User-ID.
+    2. Fetch verified connection (403 if not connected).
+    3. Fetch connected Bedrock models.
+    4. Fetch governance rules & allowed_bedrock_model_ids (400 if empty).
+    5. Intersect: connected Bedrock models ∩ allowed Bedrock models (400 if empty).
+    6. Validate user guess if provided (must be in candidate pool).
+    7. Evaluate governance rules (403 if enforce rule fails).
+    8. Profile prompt & route across candidate pool only (top 3 recommendations).
+    9. Choose invocation target: Rank #1 normally, requested retry model if in top 3.
+    10. Invoke Bedrock with customer IAM role.
+    11. Record throttle/usage.
+    12. Return markdown response and metadata.
     """
     user_id = x_user_id or "demo-user-uuid"
 
-    # Step 1: Governance check
+    # 1 & 2: Fetch verified connection
+    conn = await get_connection(x_user_id=user_id)
+    if conn.status != "verified":
+        raise HTTPException(
+            status_code=403,
+            detail="AWS Bedrock connection not verified. Please connect an IAM Role on the Connections page before routing prompts."
+        )
+
+    # 3: Fetch connected Bedrock model IDs
+    connected_bedrock_ids = [m.providerModelId for m in conn.availableModels]
+    if not connected_bedrock_ids:
+        raise HTTPException(
+            status_code=403,
+            detail="No accessible Bedrock models detected for your verified AWS IAM role."
+        )
+
+    # 4: Fetch governance rules & evaluate
     gov_result = await governance_service.evaluate_prompt(
         org_id=user_id,
         prompt=req.prompt,
-        user_specified_models=req.selectedModelIds,
         max_tokens=req.max_tokens
     )
 
+    allowed_bedrock_ids = gov_result.allowed_bedrock_model_ids
+    if not allowed_bedrock_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="Governance Allow-list is empty. Please enable at least one Bedrock model in Governance settings."
+        )
+
+    # 5: Intersect: connected Bedrock models ∩ allowed Bedrock models
+    candidate_bedrock_ids = [b for b in connected_bedrock_ids if b in allowed_bedrock_ids]
+    if not candidate_bedrock_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="No models available that are both connected to your AWS Bedrock account and permitted by your Governance Allow-list."
+        )
+
+    # 6: Validate guessed model if provided
+    guessed_id = req.guessed_bedrock_model_id or req.preferredModelId or req.preferred_model_id
+    if guessed_id:
+        # Match against candidate pool
+        if guessed_id not in candidate_bedrock_ids and not any(guessed_id in c for c in candidate_bedrock_ids):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Guessed model '{guessed_id}' is not in your allowed & connected Bedrock candidate pool."
+            )
+
+    # 7: Governance enforcement gate
     gov_schemas = [
         GovernanceEvaluationSchema(
             rule_type=e.rule_type,
@@ -159,42 +228,19 @@ async def route_and_invoke_prompt(
         ) for e in gov_result.evaluations
     ]
 
-    # If blocked by strict enforcement, return 403 error with evaluations
     if gov_result.blocked_by_enforce:
         failed_msgs = [e.message for e in gov_result.evaluations if not e.passed and e.mode == "enforce"]
-        err_msg = "Governance policy violation: " + " | ".join(failed_msgs)
-        raise HTTPException(status_code=403, detail=err_msg)
-
-    # Step 2: Fetch customer connection (IAM Role ARN + enabled models)
-    conn = await get_connection(x_user_id=user_id)
-    connected_bedrock_ids = [m.providerModelId for m in conn.availableModels] if conn.status == "verified" else []
-    
-    # Fallback to standard catalog if in test mode without verified AWS account
-    if not connected_bedrock_ids:
-        connected_bedrock_ids = list(model_mapping_service.bedrock_to_friendly.keys())
-
-    # Identify user's optional selected / preferred model for comparison benchmarking
-    user_preferred_raw = req.preferredModelId or req.preferred_model_id or (req.selectedModelIds[0] if (req.selectedModelIds and len(req.selectedModelIds) > 0) else None)
-    user_selected_friendly = model_mapping_service.to_friendly_id(user_preferred_raw) if user_preferred_raw else None
-
-    # Candidate pool is always the Allowed Models (connected Bedrock models ∩ governance allow-list).
-    # We do NOT restrict routing to the user's manual selection — router always picks optimal model from allowed pool.
-    candidate_friendly_ids, mapping_warnings = model_mapping_service.intersect_candidates(
-        user_selected_friendly_or_bedrock_ids=None,
-        connected_bedrock_model_ids=connected_bedrock_ids,
-        allow_listed_friendly_ids=gov_result.allowed_models,
-    )
-
-    if not candidate_friendly_ids:
         raise HTTPException(
-            status_code=400,
-            detail="No routable models available that satisfy the Allow-list policy and Bedrock enablement."
+            status_code=403,
+            detail="Governance policy violation: " + " | ".join(failed_msgs)
         )
 
-    # Step 3: Run Prompt Profiling & Model Routing Engine (Top 3 recommendations)
+    # 8: Convert candidate Bedrock IDs to Router IDs and Route
+    candidate_router_ids = model_mapping_service.to_router_ids(candidate_bedrock_ids)
+
     routing_result = routing_service.route(
         prompt=req.prompt,
-        allowed_model_ids=candidate_friendly_ids,
+        allowed_model_ids=candidate_router_ids,
         max_tokens=req.max_tokens,
         enterprise_criticality=req.enterprise_criticality or "standard",
         top_n=3,
@@ -206,49 +252,78 @@ async def route_and_invoke_prompt(
             detail="No candidate models passed routing capability and context filters for this prompt."
         )
 
-    # Step 4: Dispatch to Bedrock with cascade fallback: Top 1 -> Top 2 -> Top 3
-    invoke_res = None
-    winning_rec = None
-    actual_routed_bedrock_id = None
-    actual_friendly_id = None
-    actual_reasons = []
-    fallback_chain = []
-    errors = []
+    # Build recommendations list
+    all_recs: List[ModelRecommendationSchema] = []
+    for r in routing_result.recommendations:
+        all_recs.append(ModelRecommendationSchema(
+            rank=r.rank,
+            model_id=r.model_id,
+            bedrock_model_id=r.bedrock_model_id,
+            display_name=r.display_name,
+            provider=r.provider,
+            tier=r.tier,
+            estimated_cost_usd=r.estimated_cost_usd,
+            domain_match_count=r.domain_match_count,
+            reasons=r.reasons,
+            routing_score=r.routing_score,
+        ))
 
-    for rec in routing_result.recommendations[:3]:
-        target_bedrock_id = model_mapping_service.get_bedrock_id(rec.model_id)
-        if not target_bedrock_id:
-            continue
-        try:
-            logger.info(f"Attempting invocation of rank {rec.rank} model: {rec.model_id} ({target_bedrock_id})")
-            invoke_res = bedrock_invoke_service.invoke(
-                role_arn=conn.roleArn if conn.status == "verified" else None,
-                external_id=user_id,
-                bedrock_model_id=target_bedrock_id,
-                prompt=req.prompt,
-                max_tokens=req.max_tokens or 1500,
+    # 9: Determine invocation target (Rank #1 by default, or specific valid retry model)
+    target_rec = all_recs[0]
+    target_bedrock_id = target_rec.bedrock_model_id
+
+    if req.retry_bedrock_model_id:
+        # User requested manual retry with rank #2 or #3
+        matching_recs = [r for r in all_recs if r.bedrock_model_id == req.retry_bedrock_model_id or r.model_id == req.retry_bedrock_model_id]
+        if not matching_recs:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Requested retry model '{req.retry_bedrock_model_id}' is not among the top 3 recommendations for this prompt."
             )
-            winning_rec = rec
-            actual_routed_bedrock_id = target_bedrock_id
-            actual_friendly_id = rec.model_id
-            actual_reasons = rec.reasons
-            break
-        except Exception as e:
-            logger.warning(f"Rank {rec.rank} model {target_bedrock_id} failed: {e}. Attempting next fallback...")
-            fallback_chain.append(target_bedrock_id)
-            errors.append(f"Rank {rec.rank} ({rec.model_id}): {str(e)}")
+        target_rec = matching_recs[0]
+        target_bedrock_id = target_rec.bedrock_model_id
 
-    if not invoke_res or not winning_rec:
+    # 10: Invoke Bedrock Foundation Model
+    invocation_error = None
+    invoke_res = None
+
+    try:
+        logger.info(f"Invoking Bedrock model {target_bedrock_id} (Rank #{target_rec.rank} - {target_rec.display_name})")
+        invoke_res = bedrock_invoke_service.invoke(
+            role_arn=conn.roleArn,
+            external_id=user_id,
+            bedrock_model_id=target_bedrock_id,
+            prompt=req.prompt,
+            max_tokens=req.max_tokens or 1500,
+        )
+    except Exception as e:
+        logger.error(f"Invocation of {target_bedrock_id} failed: {e}")
+        invocation_error = str(e)
         raise HTTPException(
             status_code=502,
-            detail=f"All top candidate models failed to invoke: {' | '.join(errors)}"
+            detail=f"Bedrock invocation failed for {target_rec.display_name} ({target_bedrock_id}): {str(e)}"
         )
 
-    fallback_used = len(fallback_chain) > 0
-    fallback_from = fallback_chain[0] if fallback_chain else None
-
-    # Format profile summary
+    # 11: Record throttle / usage attempt
     p = routing_result.prompt_profile
+    governance_service.record_request_attempt(user_id, p.input_token_count)
+
+    # 12: User Guess Analysis
+    user_guess_info = None
+    if guessed_id:
+        guessed_display = model_mapping_service.get_display_name(guessed_id)
+        is_match = (guessed_id == target_bedrock_id or model_mapping_service.get_router_id(guessed_id) == target_rec.model_id)
+        if is_match:
+            insight = f"Your guessed model ({guessed_display}) matched the AI Router recommendation as the optimal model for this prompt."
+        else:
+            insight = f"You guessed {guessed_display}, but AI Router routed to {target_rec.display_name} (Rank #{target_rec.rank}) as the optimal model for complexity Tier {routing_result.resolved_tier} (Score: {p.complexity_score:.2f})."
+        user_guess_info = {
+            "guessed_model_id": guessed_id,
+            "guessed_model_name": guessed_display,
+            "is_match": is_match,
+            "comparison_insight": insight,
+        }
+
     profile_summary = ProfileSummarySchema(
         domain=p.domain,
         intent=p.intent,
@@ -270,75 +345,21 @@ async def route_and_invoke_prompt(
         )
     )
 
-    all_recs = []
-    for r in routing_result.recommendations:
-        all_recs.append(ModelRecommendationSchema(
-            rank=r.rank,
-            model_id=r.model_id,
-            bedrock_model_id=model_mapping_service.get_bedrock_id(r.model_id),
-            provider=r.provider,
-            tier=r.tier,
-            estimated_cost_usd=r.estimated_cost_usd,
-            domain_match_count=r.domain_match_count,
-            reasons=r.reasons,
-            routing_score=r.routing_score,
-        ))
-
-    # Display name lookup
-    display_name = actual_friendly_id.replace("-", " ").title()
-    for cat_item in model_mapping_service.catalog:
-        pm_id = cat_item.get("providerModelId", "")
-        if (
-            cat_item.get("friendly_id") == actual_friendly_id
-            or pm_id == actual_routed_bedrock_id
-            or (pm_id and actual_routed_bedrock_id.endswith(pm_id))
-        ):
-            display_name = cat_item["name"]
-            break
-
-    # Look up user selected model display name
-    user_selected_display_name = None
-    if user_preferred_raw:
-        for cat_item in model_mapping_service.catalog:
-            pm_id = cat_item.get("providerModelId", "")
-            if (
-                cat_item.get("id") == user_preferred_raw
-                or cat_item.get("friendly_id") == user_selected_friendly
-                or pm_id == user_preferred_raw
-                or (pm_id and user_preferred_raw.endswith(pm_id))
-            ):
-                user_selected_display_name = cat_item["name"]
-                break
-        if not user_selected_display_name and user_selected_friendly:
-            user_selected_display_name = user_selected_friendly.replace("-", " ").title()
-
-    comparison_insight = None
-    if user_selected_display_name:
-        if user_selected_friendly == actual_friendly_id:
-            comparison_insight = f"Your chosen model ({user_selected_display_name}) matched the routing engine recommendation as the optimal model for this prompt."
-        else:
-            comparison_insight = f"You selected {user_selected_display_name}, but Prompt Profiler analyzed your prompt (Tier {routing_result.resolved_tier}, Complexity: {p.complexity_score:.2f}) and routed to {display_name} as the optimal model satisfying your governance policies and cost constraints."
-
     return ModelResponse(
         text=invoke_res["text"],
-        model_used=actual_routed_bedrock_id,
-        model_used_name=display_name,
-        routed_model_id=actual_friendly_id,
-        user_selected_model=user_preferred_raw,
-        user_selected_model_name=user_selected_display_name,
-        comparison_insight=comparison_insight,
-        routing_reason=actual_reasons,
+        model_used=target_bedrock_id,
+        model_used_name=target_rec.display_name,
+        routed_model_id=target_rec.model_id,
+        profile_summary=profile_summary,
+        governance_evaluations=gov_schemas,
+        recommendations=all_recs,
+        user_guess=user_guess_info,
+        warnings=routing_result.warnings,
+        invocation_error=invocation_error,
         tier=routing_result.resolved_tier,
         complexity_score=p.complexity_score,
-        cost_estimate=winning_rec.estimated_cost_usd,
+        cost_estimate=target_rec.estimated_cost_usd,
         tokens_used=invoke_res.get("tokens_used"),
         latency_ms=invoke_res.get("latency_ms"),
-        fallback_used=fallback_used,
-        fallback_from=fallback_from,
-        fallback_chain=fallback_chain,
-        fallback_count=len(fallback_chain),
-        governance_evaluations=gov_schemas,
-        profile_summary=profile_summary,
-        recommendations=all_recs,
-        warnings=routing_result.warnings + mapping_warnings
+        routing_reason=target_rec.reasons,
     )

@@ -1,12 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LoginForm, SignupForm, ForgotPasswordForm, ResetPasswordForm } from './components/auth/AuthForms';
 import { ConnectionsPage } from './components/connections/ConnectionsPage';
-import { PlaygroundPage } from './components/playground/PlaygroundPage';
 import { GovernancePage } from './components/governance/GovernancePage';
 import { ModelsPage } from './components/models/ModelsPage';
-import { getConnection } from './services/mock/mockService';
 
 // ─── Full-screen loader ───────────────────────────────────────────────────────
 function Loader() {
@@ -46,27 +44,6 @@ function RedirectIfAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// ─── RequireConnection — playground requires a verified provider ───────────────
-function RequireConnection({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  const navigate = useNavigate();
-  const [checking, setChecking] = useState(true);
-
-  useEffect(() => {
-    if (!user) return;
-    getConnection(user.id).then(conn => {
-      if (conn.status !== 'verified') {
-        navigate('/connections', { replace: true });
-      } else {
-        setChecking(false);
-      }
-    });
-  }, [user, navigate]);
-
-  if (loading || checking) return <Loader />;
-  return <>{children}</>;
-}
-
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   return (
@@ -97,19 +74,13 @@ export default function App() {
             element={<RequireAuth><ConnectionsPage /></RequireAuth>}
           />
 
-          {/* Protected: playground */}
+          {/* Redirect /playground -> /governance */}
           <Route
             path="/playground"
-            element={
-              <RequireAuth>
-                <RequireConnection>
-                  <PlaygroundPage />
-                </RequireConnection>
-              </RequireAuth>
-            }
+            element={<Navigate to="/governance" replace />}
           />
 
-          {/* Protected: Governance policies management */}
+          {/* Protected: Governance policies & routing management */}
           <Route
             path="/governance"
             element={

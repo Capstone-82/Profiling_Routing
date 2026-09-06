@@ -196,22 +196,10 @@ class BedrockInvokeService:
         Executes InvokeModel on AWS Bedrock via customer credentials.
         Returns: { 'text': str, 'tokens_used': int, 'latency_ms': float, 'simulated': bool }
         """
-        start_time = time.time()
-
-        # If role_arn is missing or is a local demo/test run, return clean demonstration response
         if not role_arn or not role_arn.startswith("arn:aws:iam::"):
-            time.sleep(0.4)
-            latency = round((time.time() - start_time) * 1000, 2)
-            est_tokens = len(prompt.split()) + 150
-            return {
-                "text": f"Simulated response from {bedrock_model_id}:\n\n"
-                        f"Processed prompt with governance policies applied. "
-                        f"Target Bedrock model `{bedrock_model_id}` answered successfully.",
-                "tokens_used": est_tokens,
-                "latency_ms": latency,
-                "simulated": True
-            }
+            raise ValueError("Valid AWS IAM Role ARN is required for Bedrock invocation.")
 
+        start_time = time.time()
         actual_model_id = self._resolve_bedrock_model_id(bedrock_model_id, region=region)
         client = None
 

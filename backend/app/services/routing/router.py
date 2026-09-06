@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 from pathlib import Path
 import json
@@ -17,8 +18,12 @@ try:
 except Exception:
     pass
 
-import numpy as np
-import pandas as pd
+try:
+    import numpy as np
+    import pandas as pd
+except ImportError:
+    np = None
+    pd = None
 
 from app.services.routing.routing_models import (
     PromptProfile,
@@ -251,8 +256,14 @@ class ModelRegistry:
 
         self.models: List[ModelCandidate] = []
         for m in data.get("models", []):
+            model_id = m.get("router_model_id") or m.get("model_id", "")
+            bedrock_model_id = m.get("bedrock_model_id") or m.get("api_model_id", model_id)
+            display_name = m.get("display_name") or model_id.replace("-", " ").title()
+
             candidate = ModelCandidate(
-                model_id=m["model_id"],
+                model_id=model_id,
+                bedrock_model_id=bedrock_model_id,
+                display_name=display_name,
                 provider=m.get("provider", "unknown"),
                 generation=m.get("generation", "current"),
                 tier=m["tier"],
@@ -266,14 +277,10 @@ class ModelRegistry:
                 domain_strengths=m.get("domain_strengths", []),
                 manual_escalation_only=bool(m.get("manual_escalation_only", False)),
                 total_context_tokens=int(m.get("total_context_tokens", m.get("max_input_tokens", 128000))),
-                api_model_id=m.get("api_model_id"),
-                lifecycle_status=m.get("lifecycle", {}).get(
-                    "status", "deprecated" if m.get("generation") == "legacy" else "active"
-                ),
-                verification_status=m.get("verification_status", "Needs Manual Verification"),
+                lifecycle_status=m.get("lifecycle_status", m.get("lifecycle", {}).get("status", "active")),
                 capability_tags=m.get("capability_tags", m.get("domain_strengths", [])),
                 latency_slo_ms=m.get("latency_slo_ms"),
-                availability_status=m.get("availability_status", "unknown"),
+                availability_status=m.get("availability_status", "available"),
             )
             self.models.append(candidate)
 
@@ -572,6 +579,8 @@ class ModelRouter:
                 ModelRecommendation(
                     rank=i + 1,
                     model_id=model.model_id,
+                    bedrock_model_id=model.bedrock_model_id,
+                    display_name=model.display_name,
                     provider=model.provider,
                     tier=model.tier,
                     estimated_cost_usd=self._estimate_cost(model, profile),

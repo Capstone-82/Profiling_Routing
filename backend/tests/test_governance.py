@@ -4,9 +4,8 @@ from app.services.governance_service import GovernanceService, GovernanceRule, t
 @pytest.mark.asyncio
 async def test_governance_context_window_enforce():
     service = GovernanceService()
-    org_id = "test-org-1"
+    org_id = "test-org-context"
 
-    # Set strict context window rule
     rule = GovernanceRule(
         org_id=org_id,
         rule_type="context_window",
@@ -15,7 +14,6 @@ async def test_governance_context_window_enforce():
     )
     await service.save_rule(rule)
 
-    # Prompt with 10 words (exceeds 5 tokens)
     long_prompt = "This is a very long prompt with way too many words for token limit"
     res = await service.evaluate_prompt(org_id, long_prompt)
 
@@ -26,27 +24,55 @@ async def test_governance_context_window_enforce():
     assert cw_eval.mode == "enforce"
 
 @pytest.mark.asyncio
-async def test_governance_throttle_dry_run():
+async def test_governance_throttle_does_not_mutate_on_evaluate():
     service = GovernanceService()
-    org_id = "test-org-2"
+    org_id = "test-org-throttle-pure"
 
-    # Set throttle limit to 1 rpm in dry_run mode
     rule = GovernanceRule(
         org_id=org_id,
         rule_type="throttle",
-        mode="dry_run",
-        config={"rate_limit_rpm": 1}
+        mode="enforce",
+        config={"rate_limit_rpm": 2}
     )
     await service.save_rule(rule)
 
-    # Send first request
-    res1 = await service.evaluate_prompt(org_id, "Hello")
-    assert res1.passed is True
+    # Initial stats should be empty
+    initial_stats = throttle_tracker.get_stats(org_id)
+    assert initial_stats["rpm"] == 0
 
-    # Send second request immediately (exceeds 1 rpm)
-    res2 = await service.evaluate_prompt(org_id, "Hello again")
-    # Because it is dry_run, blocked_by_enforce should be False, but evaluation flag is False
-    assert res2.blocked_by_enforce is False
-    throttle_eval = next(e for e in res2.evaluations if e.rule_type == "throttle")
-    assert throttle_eval.passed is False
-    assert throttle_eval.mode == "dry_run"
+    # Multiple evaluate_prompt calls should NOT increase rpm
+    await service.evaluate_prompt(org_id, "Prompt 1")
+    await service.evaluate_prompt(org_id, "Prompt 2")
+    await service.evaluate_prompt(org_id, "Prompt 3")
+
+    stats_after_eval = throttle_tracker.get_stats(org_id)
+    assert stats_after_eval["rpm"] == 0
+
+    # Explicit record_request_attempt SHOULD record
+    service.record_request_attempt(org_id, 100)
+    service.record_request_attempt(org_id, 100)
+    stats_after_record = throttle_tracker.get_stats(org_id)
+    assert stats_after_record["rpm"] == 2
+
+@pytest.mark.asyncio
+async def test_governance_allow_list_bedrock_ids():
+    service = GovernanceService()
+    org_id = "test-org-allow-list"
+
+    rule = GovernanceRule(
+        org_id=org_id,
+        rule_type="allow_list",
+        mode="enforce",
+        config={
+            "allowed_bedrock_model_ids": [
+                "anthropic.claude-3-5-sonnet-20241022-v2:0",
+                "amazon.nova-pro-v1:0"
+            ]
+        }
+    )
+    await service.save_rule(rule)
+
+    res = await service.evaluate_prompt(org_id, "Hello world")
+    assert res.passed is True
+    assert len(res.allowed_bedrock_model_ids) == 2
+    assert "anthropic.claude-3-5-sonnet-20241022-v2:0" in res.allowed_bedrock_model_ids

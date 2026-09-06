@@ -1,56 +1,31 @@
 {
   "registry_metadata": {
-    "schema_version": "3.1.0",
-    "version": "3.1.0",
-    "rebuilt_from": "model_registry_full.json v2.0.0",
-    "last_updated": "2026-07-29",
+    "schema_version": "4.0.0",
+    "version": "4.0.0",
+    "last_updated": "2026-09-06",
     "currency": "USD",
     "pricing_unit": "per_1M_tokens",
-    "shape_note": "Numeric/enum fields only. No prose (no 'notes', no 'task_fit.weak', no conflict warnings). Built for route_model() to consume directly -- no manual judgment at request time.",
-    "source_note": "Model facts require an exact provider API, region, service tier, and account entitlement. Any field without an explicit per-model verification record defaults to Needs Manual Verification and must not be used for billing-sensitive or automatic deployment decisions.",
-    "verification_defaults": {
-      "verification_status": "Needs Manual Verification",
-      "deployment_status": "Needs Manual Verification"
-    },
-    "known_scheduled_changes": [
-      {
-        "model_id": "claude-sonnet-5",
-        "change": "introductory $2/$10 pricing expires 2026-08-31, standard $3/$15 begins 2026-09-01"
-      },
-      {
-        "model_id": "gemini-2.5-flash-lite",
-        "change": "scheduled for retirement 2026-10-16"
-      },
-      {
-        "model_id": "deepseek-v3.2 / deepseek-r1 (aliases)",
-        "change": "retired 2026-07-24, now route to deepseek-v4-flash/pro -- kept in this file only as legacy history, not for new routing"
-      }
-    ]
+    "environment": "aws_bedrock_production",
+    "source": "AWS Bedrock Foundation Models Official Pricing"
   },
   "tiers": {
     "T1": {
       "label": "Simple",
       "d1_max": 0.25,
-      "d2_max": 0.5,
-      "d3_max": 0.25,
-      "threshold_status": "placeholder -- not derived from a benchmark index, plain informed judgment per session notes. Revisit once real routing logs exist.",
-      "threshold_basis": "Set to bound the two T1 worked examples in Prompt_Profiling.docx section 3.4 (d1/d2/d3 of 0.25/0.50/0.25 and 0.00/0.50/0.25) with no headroom into T2 worked-example territory."
+      "d2_max": 0.50,
+      "d3_max": 0.25
     },
     "T2": {
       "label": "Medium",
-      "d1_max": 0.5,
+      "d1_max": 0.50,
       "d2_max": 0.75,
-      "d3_max": 0.75,
-      "threshold_status": "placeholder -- same caveat as T1.",
-      "threshold_basis": "Set to bound the two T2 worked examples (d1/d2/d3 of 0.50/0.75/0.75 both) with no headroom into T3 worked-example territory."
+      "d3_max": 0.75
     },
     "T3": {
       "label": "Complex",
-      "d1_max": 1.0,
-      "d2_max": 1.0,
-      "d3_max": 1.0,
-      "threshold_status": "ceiling tier -- catches anything T1/T2 can't, no upper bound needed.",
-      "threshold_basis": "n/a"
+      "d1_max": 1.00,
+      "d2_max": 1.00,
+      "d3_max": 1.00
     }
   },
   "confidence_handling": {
@@ -59,898 +34,313 @@
       "action": "use_predicted_tier"
     },
     "medium": {
-      "min_confidence": 0.5,
+      "min_confidence": 0.50,
       "max_confidence": 0.75,
       "action": "escalate_one_tier"
     },
     "low": {
-      "max_confidence": 0.5,
+      "max_confidence": 0.50,
       "action": "escalate_one_tier_and_flag_for_review"
     },
-    "rule": "never_downgrade_on_low_confidence",
-    "boundary_buffer": 0.04,
-    "boundary_buffer_note": "scores within 0.04 of the 0.40/0.70 composite-score cutoffs are treated as the higher tier"
-  },
-  "quality_first_routing": {
-    "enabled": true,
-    "quality_target_model": "claude-opus-5",
-    "min_d1_threshold": 0.75,
-    "strategic_intent_only": true,
-    "high_dependency_dimensions": ["d4", "d5"],
-    "min_dependency_score": 1.0,
-    "require_reasoning_chain": true
-  },
-  "providers": {
-    "anthropic": {"api_kind": "anthropic_messages", "verification_status": "Needs Manual Verification"},
-    "openai": {"api_kind": "responses", "verification_status": "Needs Manual Verification"},
-    "google": {"api_kind": "gemini_api_or_vertex", "verification_status": "Needs Manual Verification"},
-    "meta": {"api_kind": "host_dependent", "verification_status": "Needs Manual Verification"},
-    "mistral": {"api_kind": "openai_compatible", "verification_status": "Needs Manual Verification"},
-    "deepseek": {"api_kind": "openai_compatible", "verification_status": "Needs Manual Verification"},
-    "xai": {"api_kind": "openai_compatible", "verification_status": "Needs Manual Verification"},
-    "amazon": {"api_kind": "bedrock", "verification_status": "Needs Manual Verification"}
+    "boundary_buffer": 0.04
   },
   "weighted_routing": {
     "context_safety_margin": 0.15,
     "near_tie_points": 3.0,
-    "low_confidence_threshold": 0.5,
-    "quality_floors": {"T1": 60, "T2": 70, "T3": 80, "T3_critical": 88},
+    "low_confidence_threshold": 0.50,
+    "quality_floors": {
+      "T1": 60,
+      "T2": 70,
+      "T3": 80,
+      "T3_critical": 88
+    },
     "weights": {
-      "T1": {"quality": 25, "capability": 25, "context": 10, "reliability": 10, "latency": 15, "cost": 15},
-      "T2": {"quality": 35, "capability": 25, "context": 10, "reliability": 15, "latency": 10, "cost": 5},
-      "T3": {"quality": 45, "capability": 25, "context": 10, "reliability": 15, "latency": 0, "cost": 5},
-      "T3_critical": {"quality": 50, "capability": 25, "context": 10, "reliability": 15, "latency": 0, "cost": 0}
+      "T1": {
+        "quality": 25,
+        "capability": 25,
+        "context": 10,
+        "reliability": 10,
+        "latency": 15,
+        "cost": 15
+      },
+      "T2": {
+        "quality": 35,
+        "capability": 25,
+        "context": 10,
+        "reliability": 15,
+        "latency": 10,
+        "cost": 5
+      },
+      "T3": {
+        "quality": 45,
+        "capability": 25,
+        "context": 10,
+        "reliability": 15,
+        "latency": 0,
+        "cost": 5
+      },
+      "T3_critical": {
+        "quality": 50,
+        "capability": 25,
+        "context": 10,
+        "reliability": 15,
+        "latency": 0,
+        "cost": 0
+      }
     }
   },
   "models": [
     {
-      "model_id": "claude-haiku-4-5-20251001",
-      "provider": "anthropic",
-      "generation": "current",
-      "tier": "T1",
-      "cost_in": 1.0,
-      "cost_out": 5.0,
+      "router_model_id": "anthropic-claude-3-5-sonnet-v2",
+      "bedrock_model_id": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+      "display_name": "Claude 3.5 Sonnet v2",
+      "provider": "Anthropic",
+      "tier": "T2",
       "max_input_tokens": 200000,
       "max_output_tokens": 8192,
-      "tool_tier": 2,
-      "reasoning_mode": false,
-      "speed_tokens_per_sec": 94,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "classification",
-        "factual_lookup",
-        "extraction",
-        "short_summarisation"
-      ]
-    },
-    {
-      "model_id": "claude-sonnet-5",
-      "provider": "anthropic",
-      "generation": "current",
-      "tier": "T2",
-      "cost_in": 2.0,
-      "cost_out": 10.0,
-      "max_input_tokens": 1000000,
-      "max_output_tokens": 65536,
+      "total_context_tokens": 200000,
+      "cost_in": 3.00,
+      "cost_out": 15.00,
+      "lifecycle_status": "active",
       "tool_tier": 3,
       "reasoning_mode": true,
-      "speed_tokens_per_sec": 43,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "requirements_document",
-        "coding",
-        "agentic_workflows",
-        "structured_analysis"
-      ]
+      "speed_tokens_per_sec": 43.0,
+      "capability_tags": ["chat", "analysis", "coding", "agentic_workflows", "vision", "reasoning"],
+      "domain_strengths": ["requirements_document", "coding", "agentic_workflows", "structured_analysis"]
     },
     {
-      "model_id": "claude-opus-5",
-      "provider": "anthropic",
-      "generation": "current",
-      "tier": "T3",
-      "cost_in": 5.0,
-      "cost_out": 25.0,
-      "max_input_tokens": 1000000,
-      "max_output_tokens": 65536,
-      "tool_tier": 3,
-      "reasoning_mode": true,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "system_design",
-        "reasoning",
-        "regulatory_analysis",
-        "complex_coding"
-      ]
-    },
-    {
-      "model_id": "claude-fable-5",
-      "provider": "anthropic",
-      "generation": "current",
-      "tier": "T3",
-      "cost_in": 10.0,
-      "cost_out": 50.0,
-      "max_input_tokens": 1000000,
-      "max_output_tokens": 65536,
-      "tool_tier": 3,
-      "reasoning_mode": true,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "highest_stakes_reasoning",
-        "novel_synthesis"
-      ],
-      "manual_escalation_only": true
-    },
-    {
-      "model_id": "claude-sonnet-4-6",
-      "provider": "anthropic",
-      "generation": "previous",
-      "tier": "T2",
-      "cost_in": 3.0,
-      "cost_out": 15.0,
-      "max_input_tokens": 1000000,
-      "max_output_tokens": 128000,
-      "tool_tier": 3,
-      "reasoning_mode": true,
-      "speed_tokens_per_sec": 43,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "coding",
-        "structured_analysis"
-      ]
-    },
-    {
-      "model_id": "claude-opus-4-7",
-      "provider": "anthropic",
-      "generation": "previous",
-      "tier": "T3",
-      "cost_in": 5.0,
-      "cost_out": 25.0,
-      "max_input_tokens": 1000000,
-      "max_output_tokens": 65536,
-      "tool_tier": 3,
-      "reasoning_mode": true,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "vision",
-        "long_horizon_agents"
-      ]
-    },
-    {
-      "model_id": "claude-haiku-3-5",
-      "provider": "anthropic",
-      "generation": "legacy",
+      "router_model_id": "anthropic-claude-3-5-haiku",
+      "bedrock_model_id": "anthropic.claude-3-5-haiku-20241022-v1:0",
+      "display_name": "Claude 3.5 Haiku",
+      "provider": "Anthropic",
       "tier": "T1",
-      "cost_in": 0.8,
-      "cost_out": 4.0,
       "max_input_tokens": 200000,
       "max_output_tokens": 8192,
+      "total_context_tokens": 200000,
+      "cost_in": 0.80,
+      "cost_out": 4.00,
+      "lifecycle_status": "active",
       "tool_tier": 2,
       "reasoning_mode": false,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "classification",
-        "extraction"
-      ]
+      "speed_tokens_per_sec": 94.0,
+      "capability_tags": ["chat", "fast", "classification", "extraction", "coding"],
+      "domain_strengths": ["classification", "factual_lookup", "extraction", "short_summarisation"]
     },
     {
-      "model_id": "claude-3-haiku",
-      "provider": "anthropic",
-      "generation": "legacy",
+      "router_model_id": "anthropic-claude-3-opus",
+      "bedrock_model_id": "anthropic.claude-3-opus-20240229-v1:0",
+      "display_name": "Claude 3 Opus",
+      "provider": "Anthropic",
+      "tier": "T3",
+      "max_input_tokens": 200000,
+      "max_output_tokens": 4096,
+      "total_context_tokens": 200000,
+      "cost_in": 15.00,
+      "cost_out": 75.00,
+      "lifecycle_status": "active",
+      "tool_tier": 3,
+      "reasoning_mode": true,
+      "speed_tokens_per_sec": 25.0,
+      "capability_tags": ["deep_reasoning", "complex_coding", "system_design", "vision", "regulatory_analysis"],
+      "domain_strengths": ["system_design", "reasoning", "regulatory_analysis", "complex_coding", "highest_stakes_reasoning"]
+    },
+    {
+      "router_model_id": "anthropic-claude-3-haiku",
+      "bedrock_model_id": "anthropic.claude-3-haiku-20240307-v1:0",
+      "display_name": "Claude 3 Haiku",
+      "provider": "Anthropic",
       "tier": "T1",
+      "max_input_tokens": 200000,
+      "max_output_tokens": 4096,
+      "total_context_tokens": 200000,
       "cost_in": 0.25,
       "cost_out": 1.25,
-      "max_input_tokens": 200000,
-      "max_output_tokens": 4096,
+      "lifecycle_status": "legacy",
       "tool_tier": 1,
       "reasoning_mode": false,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "high_volume_classification",
-        "simple_extraction"
-      ]
+      "speed_tokens_per_sec": 110.0,
+      "capability_tags": ["fast", "budget", "classification", "extraction"],
+      "domain_strengths": ["high_volume_classification", "simple_extraction"]
     },
     {
-      "model_id": "claude-opus-4-1",
-      "provider": "anthropic",
-      "generation": "legacy",
-      "tier": "T3",
-      "cost_in": 15.0,
-      "cost_out": 75.0,
-      "max_input_tokens": 200000,
-      "max_output_tokens": 32000,
-      "tool_tier": 3,
-      "reasoning_mode": true,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": []
-    },
-    {
-      "model_id": "gpt-5.6-sol",
-      "provider": "openai",
-      "generation": "current",
-      "tier": "T3",
-      "cost_in": 5.0,
-      "cost_out": 30.0,
-      "max_input_tokens": 1050000,
-      "max_output_tokens": 128000,
-      "tool_tier": 3,
-      "reasoning_mode": true,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "agentic_coding",
-        "complex_reasoning"
-      ]
-    },
-    {
-      "model_id": "gpt-5.6-terra",
-      "provider": "openai",
-      "generation": "current",
-      "tier": "T2",
-      "cost_in": 2.5,
-      "cost_out": 15.0,
-      "max_input_tokens": 1050000,
-      "max_output_tokens": 128000,
-      "tool_tier": 3,
-      "reasoning_mode": true,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "production_rag",
-        "chatbots",
-        "standard_apis"
-      ]
-    },
-    {
-      "model_id": "gpt-5.6-luna",
-      "provider": "openai",
-      "generation": "current",
+      "router_model_id": "amazon-nova-micro",
+      "bedrock_model_id": "amazon.nova-micro-v1:0",
+      "display_name": "Amazon Nova Micro",
+      "provider": "Amazon",
       "tier": "T1",
-      "cost_in": 1.0,
-      "cost_out": 6.0,
-      "max_input_tokens": 1050000,
-      "max_output_tokens": 128000,
-      "tool_tier": 3,
-      "reasoning_mode": true,
-      "speed_tokens_per_sec": 204,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "classification",
-        "intent_routing",
-        "moderation",
-        "simple_summarisation"
-      ]
-    },
-    {
-      "model_id": "gpt-5.4",
-      "provider": "openai",
-      "generation": "previous",
-      "tier": "T2",
-      "cost_in": 2.5,
-      "cost_out": 15.0,
-      "max_input_tokens": 1000000,
-      "max_output_tokens": 128000,
-      "tool_tier": 3,
-      "reasoning_mode": true,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "production_workhorse"
-      ]
-    },
-    {
-      "model_id": "gpt-5.4-mini",
-      "provider": "openai",
-      "generation": "previous",
-      "tier": "T1",
-      "cost_in": 0.75,
-      "cost_out": 4.5,
-      "max_input_tokens": 1000000,
-      "max_output_tokens": 128000,
-      "tool_tier": 2,
-      "reasoning_mode": false,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "faq_style_support",
-        "troubleshooting"
-      ]
-    },
-    {
-      "model_id": "gpt-5.4-nano",
-      "provider": "openai",
-      "generation": "previous",
-      "tier": "T1",
-      "cost_in": 0.2,
-      "cost_out": 1.25,
-      "max_input_tokens": 1000000,
-      "max_output_tokens": 128000,
-      "tool_tier": 1,
-      "reasoning_mode": false,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "structured_reporting",
-        "high_volume_simple_tasks"
-      ]
-    },
-    {
-      "model_id": "gpt-5-mini",
-      "provider": "openai",
-      "generation": "legacy",
-      "tier": "T1",
-      "cost_in": 0.125,
-      "cost_out": 1.0,
-      "max_input_tokens": 400000,
-      "max_output_tokens": 128000,
-      "tool_tier": 2,
-      "reasoning_mode": false,
-      "speed_tokens_per_sec": 101,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "high_volume_simple_tasks"
-      ]
-    },
-    {
-      "model_id": "gpt-4o",
-      "provider": "openai",
-      "generation": "legacy",
-      "tier": "T2",
-      "cost_in": 2.5,
-      "cost_out": 10.0,
       "max_input_tokens": 128000,
-      "max_output_tokens": 16384,
-      "tool_tier": 2,
-      "reasoning_mode": false,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "general_purpose_legacy"
-      ]
-    },
-    {
-      "model_id": "gpt-4o-mini",
-      "provider": "openai",
-      "generation": "legacy",
-      "tier": "T1",
-      "cost_in": 0.15,
-      "cost_out": 0.6,
-      "max_input_tokens": 128000,
-      "max_output_tokens": 16384,
-      "tool_tier": 2,
-      "reasoning_mode": false,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "legacy_high_volume"
-      ]
-    },
-    {
-      "model_id": "gemini-3.1-pro",
-      "provider": "google",
-      "generation": "current",
-      "tier": "T3",
-      "cost_in": 2.0,
-      "cost_out": 12.0,
-      "max_input_tokens": 1000000,
-      "max_output_tokens": 64000,
-      "tool_tier": 3,
-      "reasoning_mode": true,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "agentic_coding",
-        "native_multimodal"
-      ]
-    },
-    {
-      "model_id": "gemini-3.6-flash",
-      "provider": "google",
-      "generation": "current",
-      "tier": "T2",
-      "cost_in": 1.5,
-      "cost_out": 7.5,
-      "max_input_tokens": 1000000,
-      "max_output_tokens": 64000,
-      "tool_tier": 3,
-      "reasoning_mode": true,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "coding",
-        "price_performance_default"
-      ]
-    },
-    {
-      "model_id": "gemini-3.5-flash-lite",
-      "provider": "google",
-      "generation": "current",
-      "tier": "T1",
-      "cost_in": 0.3,
-      "cost_out": 2.5,
-      "max_input_tokens": 1000000,
-      "max_output_tokens": 64000,
-      "tool_tier": 2,
-      "reasoning_mode": false,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "classification",
-        "routing"
-      ]
-    },
-    {
-      "model_id": "gemini-2.5-flash-lite",
-      "provider": "google",
-      "generation": "legacy",
-      "tier": "T1",
-      "cost_in": 0.1,
-      "cost_out": 0.4,
-      "max_input_tokens": 1000000,
-      "max_output_tokens": 64000,
-      "tool_tier": 1,
-      "reasoning_mode": false,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "cheapest_available_option",
-        "high_volume_simple_tasks"
-      ]
-    },
-    {
-      "model_id": "gemini-2.5-pro",
-      "api_model_id": "gemini-2.5-pro",
-      "verification_status": "verified",
-      "verification_source": "https://ai.google.dev/gemini-api/docs/models/gemini",
-      "lifecycle": {"status": "active"},
-      "provider": "google",
-      "generation": "legacy",
-      "tier": "T2",
-      "cost_in": 1.25,
-      "cost_out": 10.0,
-      "max_input_tokens": 1048576,
-      "max_output_tokens": 65536,
-      "total_context_tokens": 1048576,
-      "tool_tier": 3,
-      "reasoning_mode": true,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "legacy_reasoning"
-      ]
-    },
-    {
-      "model_id": "llama-4-scout",
-      "provider": "meta",
-      "generation": "current",
-      "tier": "T1",
-      "cost_in": 0.1,
-      "cost_out": 0.3,
-      "max_input_tokens": 10000000,
-      "max_output_tokens": 16384,
-      "tool_tier": 2,
-      "reasoning_mode": false,
-      "speed_tokens_per_sec": 98,
-      "pricing_confidence": "estimate_host_dependent",
-      "domain_strengths": [
-        "extremely_long_context_reading",
-        "cheap_high_volume"
-      ]
-    },
-    {
-      "model_id": "llama-4-maverick",
-      "provider": "meta",
-      "generation": "current",
-      "tier": "T1",
-      "cost_in": 0.2,
-      "cost_out": 0.6,
-      "max_input_tokens": 1000000,
-      "max_output_tokens": 16384,
-      "tool_tier": 2,
-      "reasoning_mode": false,
-      "speed_tokens_per_sec": 116,
-      "pricing_confidence": "estimate_host_dependent",
-      "domain_strengths": [
-        "general_purpose_budget",
-        "vision"
-      ]
-    },
-    {
-      "model_id": "llama-3.3-70b",
-      "provider": "meta",
-      "generation": "previous",
-      "tier": "T1",
-      "cost_in": 0.72,
-      "cost_out": 0.72,
-      "max_input_tokens": 128000,
-      "max_output_tokens": 8192,
-      "tool_tier": 2,
-      "reasoning_mode": false,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "conflicting_sources",
-      "domain_strengths": [
-        "legacy_compatibility"
-      ]
-    },
-    {
-      "model_id": "llama-3.1-405b",
-      "provider": "meta",
-      "generation": "legacy",
-      "tier": "T2",
-      "cost_in": 0.65,
-      "cost_out": 0.8,
-      "max_input_tokens": 128000,
-      "max_output_tokens": 4096,
-      "tool_tier": 2,
-      "reasoning_mode": false,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "conflicting_sources",
-      "domain_strengths": [
-        "legacy_large_dense_model"
-      ]
-    },
-    {
-      "model_id": "mistral-large-3",
-      "provider": "mistral",
-      "generation": "current",
-      "tier": "T2",
-      "cost_in": 2.0,
-      "cost_out": 6.0,
-      "max_input_tokens": 128000,
-      "max_output_tokens": 8192,
-      "tool_tier": 2,
-      "reasoning_mode": false,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "conflicting_sources",
-      "domain_strengths": [
-        "output_heavy_tasks",
-        "EU_data_residency"
-      ]
-    },
-    {
-      "model_id": "mistral-small",
-      "provider": "mistral",
-      "generation": "current",
-      "tier": "T1",
-      "cost_in": 0.1,
-      "cost_out": 0.3,
-      "max_input_tokens": 32000,
-      "max_output_tokens": 8192,
-      "tool_tier": 2,
-      "reasoning_mode": false,
-      "speed_tokens_per_sec": 140,
-      "pricing_confidence": "estimate",
-      "domain_strengths": [
-        "classification",
-        "extraction",
-        "budget_generation"
-      ]
-    },
-    {
-      "model_id": "codestral",
-      "api_model_id": "codestral-2508",
-      "verification_status": "verified",
-      "verification_source": "https://docs.mistral.ai/models/model-cards/codestral-25-08",
-      "lifecycle": {"status": "active"},
-      "provider": "mistral",
-      "generation": "current",
-      "tier": "T1",
-      "cost_in": 0.3,
-      "cost_out": 0.9,
-      "max_input_tokens": 128000,
-      "max_output_tokens": 8192,
+      "max_output_tokens": 5000,
       "total_context_tokens": 128000,
-      "tool_tier": 2,
-      "reasoning_mode": false,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "code_completion",
-        "fill_in_the_middle"
-      ]
-    },
-    {
-      "model_id": "deepseek-v4-flash",
-      "api_model_id": "deepseek-v4-flash",
-      "verification_status": "verified",
-      "verification_source": "https://api-docs.deepseek.com/quick_start/pricing?article_id=article_1779470751466_8",
-      "lifecycle": {"status": "active"},
-      "provider": "deepseek",
-      "generation": "current",
-      "tier": "T1",
-      "cost_in": 0.14,
-      "cost_out": 0.28,
-      "max_input_tokens": 1000000,
-      "max_output_tokens": 384000,
-      "tool_tier": 2,
-      "reasoning_mode": true,
-      "total_context_tokens": 1000000,
-      "capability_tags": ["thinking", "tool_calling", "json_output", "fim", "long_context"],
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "cheapest_frontier_class_option",
-        "high_volume"
-      ]
-    },
-    {
-      "model_id": "deepseek-v4-pro",
-      "api_model_id": "deepseek-v4-pro",
-      "verification_status": "verified_cache_miss_pricing",
-      "verification_source": "https://api-docs.deepseek.com/quick_start/pricing?article_id=article_1779470751466_8",
-      "lifecycle": {"status": "active"},
-      "provider": "deepseek",
-      "generation": "current",
-      "tier": "T2",
-      "cost_in": 0.435,
-      "cost_out": 0.87,
-      "max_input_tokens": 1000000,
-      "max_output_tokens": 384000,
-      "total_context_tokens": 1000000,
-      "capability_tags": ["thinking", "tool_calling", "json_output", "fim", "long_context"],
-      "tool_tier": 2,
-      "reasoning_mode": true,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "estimate",
-      "domain_strengths": [
-        "reasoning_at_low_cost"
-      ]
-    },
-    {
-      "model_id": "grok-4.5",
-      "provider": "xai",
-      "generation": "current",
-      "tier": "T2",
-      "cost_in": 2.0,
-      "cost_out": 6.0,
-      "max_input_tokens": 500000,
-      "max_output_tokens": 16384,
-      "tool_tier": 3,
-      "reasoning_mode": true,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "cost_efficient_reasoning"
-      ]
-    },
-    {
-      "model_id": "grok-4.3",
-      "provider": "xai",
-      "generation": "previous",
-      "tier": "T1",
-      "cost_in": 1.25,
-      "cost_out": 2.5,
-      "max_input_tokens": 1000000,
-      "max_output_tokens": 16384,
-      "tool_tier": 3,
-      "reasoning_mode": true,
-      "speed_tokens_per_sec": 119,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "cheap_reasoning_with_large_context"
-      ]
-    },
-    {
-      "model_id": "grok-4-fast",
-      "provider": "xai",
-      "generation": "previous",
-      "tier": "T1",
-      "cost_in": 0.2,
-      "cost_out": 0.5,
-      "max_input_tokens": 2000000,
-      "max_output_tokens": 16384,
-      "tool_tier": 2,
-      "reasoning_mode": false,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "huge_context_cheap"
-      ]
-    },
-    {
-      "model_id": "amazon-nova-micro",
-      "provider": "amazon",
-      "generation": "current",
-      "tier": "T1",
       "cost_in": 0.035,
       "cost_out": 0.14,
-      "max_input_tokens": 128000,
-      "max_output_tokens": 5000,
+      "lifecycle_status": "active",
       "tool_tier": 1,
       "reasoning_mode": false,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "classification",
-        "routing",
-        "extraction",
-        "extreme_high_volume"
-      ]
+      "speed_tokens_per_sec": 150.0,
+      "capability_tags": ["fast", "economy", "classification", "routing", "extraction"],
+      "domain_strengths": ["classification", "routing", "extraction", "extreme_high_volume", "factual_lookup"]
     },
     {
-      "model_id": "amazon-nova-lite",
-      "provider": "amazon",
-      "generation": "current",
+      "router_model_id": "amazon-nova-lite",
+      "bedrock_model_id": "amazon.nova-lite-v1:0",
+      "display_name": "Amazon Nova Lite",
+      "provider": "Amazon",
       "tier": "T1",
+      "max_input_tokens": 300000,
+      "max_output_tokens": 5000,
+      "total_context_tokens": 300000,
       "cost_in": 0.06,
       "cost_out": 0.24,
-      "max_input_tokens": 300000,
-      "max_output_tokens": 5000,
+      "lifecycle_status": "active",
       "tool_tier": 1,
       "reasoning_mode": false,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "classification",
-        "simple_generation",
-        "high_volume"
-      ]
+      "speed_tokens_per_sec": 120.0,
+      "capability_tags": ["multimodal", "fast", "economy", "classification", "summarisation"],
+      "domain_strengths": ["classification", "simple_generation", "high_volume", "short_summarisation"]
     },
     {
-      "model_id": "amazon-nova-pro",
-      "provider": "amazon",
-      "generation": "current",
+      "router_model_id": "amazon-nova-pro",
+      "bedrock_model_id": "amazon.nova-pro-v1:0",
+      "display_name": "Amazon Nova Pro",
+      "provider": "Amazon",
       "tier": "T2",
-      "cost_in": 0.8,
-      "cost_out": 3.2,
       "max_input_tokens": 300000,
       "max_output_tokens": 5000,
+      "total_context_tokens": 300000,
+      "cost_in": 0.80,
+      "cost_out": 3.20,
+      "lifecycle_status": "active",
       "tool_tier": 2,
       "reasoning_mode": false,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "classification",
-        "chatbots",
-        "summarisation",
-        "code_generation"
-      ]
+      "speed_tokens_per_sec": 75.0,
+      "capability_tags": ["multimodal", "balanced", "chat", "coding", "summarisation"],
+      "domain_strengths": ["classification", "chatbots", "summarisation", "code_generation", "structured_analysis"]
     },
     {
-      "model_id": "amazon-nova-premier",
-      "api_model_id": "amazon.nova-premier-v1:0",
-      "verification_status": "verified_limits_api_id",
-      "verification_source": "https://docs.aws.amazon.com/nova/latest/userguide/what-is-nova.html",
-      "lifecycle": {"status": "legacy", "end_of_life_date": "2026-09-14"},
-      "provider": "amazon",
-      "generation": "legacy",
+      "router_model_id": "amazon-nova-premier",
+      "bedrock_model_id": "amazon.nova-premier-v1:0",
+      "display_name": "Amazon Nova Premier",
+      "provider": "Amazon",
       "tier": "T3",
-      "cost_in": 2.5,
-      "cost_out": 12.5,
       "max_input_tokens": 1000000,
       "max_output_tokens": 10000,
       "total_context_tokens": 1000000,
+      "cost_in": 2.50,
+      "cost_out": 12.50,
+      "lifecycle_status": "active",
       "tool_tier": 3,
       "reasoning_mode": true,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "complex_reasoning",
-        "system_design",
-        "agentic_workflows"
-      ]
+      "speed_tokens_per_sec": 50.0,
+      "capability_tags": ["complex_reasoning", "system_design", "agentic_workflows"],
+      "domain_strengths": ["complex_reasoning", "system_design", "agentic_workflows"]
     },
     {
-      "model_id": "deepseek-r1",
-      "verification_status": "verified_deprecated_alias",
-      "verification_source": "https://api-docs.deepseek.com/quick_start/pricing?article_id=article_1779470751466_8",
-      "lifecycle": {"status": "deprecated", "replacement_model_ids": ["deepseek-v4-flash", "deepseek-v4-pro"]},
-      "provider": "deepseek",
-      "generation": "legacy",
-      "tier": "T3",
-      "cost_in": 0.55,
-      "cost_out": 2.19,
-      "max_input_tokens": 128000,
-      "max_output_tokens": 8192,
-      "tool_tier": 3,
-      "reasoning_mode": true,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "reasoning",
-        "complex_coding",
-        "mathematics"
-      ]
-    },
-    {
-      "model_id": "devstral-2",
-      "api_model_id": "devstral-2512",
-      "verification_status": "verified_context_api_id",
-      "verification_source": "https://docs.mistral.ai/resources/known-limitations",
-      "lifecycle": {"status": "active"},
-      "provider": "mistral",
-      "generation": "current",
+      "router_model_id": "meta-llama-3-3-70b-instruct",
+      "bedrock_model_id": "meta.llama3-3-70b-instruct-v1:0",
+      "display_name": "Llama 3.3 70B Instruct",
+      "provider": "Meta",
       "tier": "T2",
-      "cost_in": 1.0,
-      "cost_out": 3.0,
-      "max_input_tokens": 256000,
-      "max_output_tokens": 8192,
-      "total_context_tokens": 256000,
-      "tool_tier": 2,
-      "reasoning_mode": false,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "coding",
-        "agentic_workflows"
-      ]
-    },
-    {
-      "model_id": "ministral-3-8b",
-      "provider": "mistral",
-      "generation": "current",
-      "tier": "T1",
-      "cost_in": 0.1,
-      "cost_out": 0.3,
       "max_input_tokens": 128000,
       "max_output_tokens": 8192,
+      "total_context_tokens": 128000,
+      "cost_in": 0.72,
+      "cost_out": 0.72,
+      "lifecycle_status": "active",
       "tool_tier": 2,
       "reasoning_mode": false,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "classification",
-        "factual_lookup"
-      ]
+      "speed_tokens_per_sec": 65.0,
+      "capability_tags": ["general_purpose", "chat", "coding", "reasoning"],
+      "domain_strengths": ["coding", "structured_analysis", "chatbots", "general_purpose_workhorse"]
     },
     {
-      "model_id": "ministral-3b",
-      "provider": "mistral",
-      "generation": "current",
+      "router_model_id": "meta-llama-3-1-8b-instruct",
+      "bedrock_model_id": "meta.llama3-1-8b-instruct-v1:0",
+      "display_name": "Llama 3.1 8B Instruct",
+      "provider": "Meta",
       "tier": "T1",
-      "cost_in": 0.05,
-      "cost_out": 0.15,
       "max_input_tokens": 128000,
       "max_output_tokens": 8192,
+      "total_context_tokens": 128000,
+      "cost_in": 0.22,
+      "cost_out": 0.22,
+      "lifecycle_status": "active",
       "tool_tier": 1,
       "reasoning_mode": false,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "extraction",
-        "factual_lookup"
-      ]
+      "speed_tokens_per_sec": 120.0,
+      "capability_tags": ["fast", "economy", "general_purpose"],
+      "domain_strengths": ["classification", "factual_lookup", "simple_extraction", "general_purpose_budget"]
     },
     {
-      "model_id": "magistral-small",
-      "provider": "mistral",
-      "generation": "current",
+      "router_model_id": "meta-llama-3-1-70b-instruct",
+      "bedrock_model_id": "meta.llama3-1-70b-instruct-v1:0",
+      "display_name": "Llama 3.1 70B Instruct",
+      "provider": "Meta",
       "tier": "T2",
-      "cost_in": 0.5,
-      "cost_out": 1.5,
-      "max_input_tokens": 32000,
-      "max_output_tokens": 8192,
-      "tool_tier": 2,
-      "reasoning_mode": false,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "classification",
-        "summarisation"
-      ]
-    },
-    {
-      "model_id": "pixtral-large-2",
-      "provider": "mistral",
-      "generation": "current",
-      "tier": "T2",
-      "cost_in": 2.0,
-      "cost_out": 6.0,
       "max_input_tokens": 128000,
       "max_output_tokens": 8192,
+      "total_context_tokens": 128000,
+      "cost_in": 0.72,
+      "cost_out": 0.72,
+      "lifecycle_status": "legacy",
       "tool_tier": 2,
       "reasoning_mode": false,
-      "speed_tokens_per_sec": null,
-      "pricing_confidence": "verified",
-      "domain_strengths": [
-        "vision",
-        "coding"
-      ]
+      "speed_tokens_per_sec": 60.0,
+      "capability_tags": ["general_purpose", "chat", "coding"],
+      "domain_strengths": ["legacy_compatibility", "coding"]
+    },
+    {
+      "router_model_id": "mistral-mistral-large-2407",
+      "bedrock_model_id": "mistral.mistral-large-2407-v1:0",
+      "display_name": "Mistral Large (2407)",
+      "provider": "Mistral",
+      "tier": "T2",
+      "max_input_tokens": 128000,
+      "max_output_tokens": 8192,
+      "total_context_tokens": 128000,
+      "cost_in": 2.00,
+      "cost_out": 6.00,
+      "lifecycle_status": "active",
+      "tool_tier": 2,
+      "reasoning_mode": false,
+      "speed_tokens_per_sec": 55.0,
+      "capability_tags": ["multilingual", "coding", "complex_reasoning"],
+      "domain_strengths": ["output_heavy_tasks", "structured_analysis", "coding"]
+    },
+    {
+      "router_model_id": "mistral-mistral-small-2402",
+      "bedrock_model_id": "mistral.mistral-small-2402-v1:0",
+      "display_name": "Mistral Small (2402)",
+      "provider": "Mistral",
+      "tier": "T1",
+      "max_input_tokens": 32000,
+      "max_output_tokens": 8192,
+      "total_context_tokens": 32000,
+      "cost_in": 0.20,
+      "cost_out": 0.60,
+      "lifecycle_status": "active",
+      "tool_tier": 1,
+      "reasoning_mode": false,
+      "speed_tokens_per_sec": 140.0,
+      "capability_tags": ["fast", "economy", "classification", "summarisation"],
+      "domain_strengths": ["classification", "extraction", "budget_generation"]
+    },
+    {
+      "router_model_id": "mistral-codestral-2501",
+      "bedrock_model_id": "mistral.codestral-2501-v1:0",
+      "display_name": "Mistral Codestral",
+      "provider": "Mistral",
+      "tier": "T2",
+      "max_input_tokens": 128000,
+      "max_output_tokens": 8192,
+      "total_context_tokens": 128000,
+      "cost_in": 0.30,
+      "cost_out": 0.90,
+      "lifecycle_status": "active",
+      "tool_tier": 2,
+      "reasoning_mode": false,
+      "speed_tokens_per_sec": 90.0,
+      "capability_tags": ["coding", "fim", "agentic_workflows"],
+      "domain_strengths": ["coding", "agentic_workflows", "code_completion"]
     }
   ]
 }

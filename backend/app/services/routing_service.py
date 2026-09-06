@@ -135,13 +135,18 @@ class RoutingService:
                 "amazon-nova-lite",
             ]
 
+            from app.services.model_mapping_service import model_mapping_service
             recs = []
             for i, m_id in enumerate(candidates[:top_n]):
+                b_id = model_mapping_service.get_bedrock_id(m_id) or m_id
+                disp_name = model_mapping_service.get_display_name(m_id)
                 recs.append(
                     ModelRecommendation(
                         rank=i + 1,
                         model_id=m_id,
-                        provider="Anthropic" if "claude" in m_id else ("Amazon" if "nova" in m_id else "Meta"),
+                        bedrock_model_id=b_id,
+                        display_name=disp_name,
+                        provider="Anthropic" if "claude" in m_id else ("Amazon" if "nova" in m_id else ("Meta" if "llama" in m_id else "Mistral")),
                         tier=profile.derived_tier,
                         estimated_cost_usd=round(0.000003 * (profile.input_token_count + profile.est_output_tokens), 6),
                         domain_match_count=1,

@@ -1,6 +1,6 @@
 // ─── Auth ────────────────────────────────────────
 export interface AuthUser {
-  id: string;          // Supabase UUID — used as IAM external_id in Task 2
+  id: string;          // Supabase UUID — used as IAM external_id
   email: string;
   createdAt?: string;
 }
@@ -16,19 +16,45 @@ export interface Connection {
   error?: string;
   availableModels?: Model[];
   verifiedAt?: string;
+  lastSyncedAt?: string;
 }
 
 // ─── Models ──────────────────────────────────────
 export interface Model {
-  id: string;              // internal UUID
-  name: string;            // display name, e.g. "Claude 3.5 Sonnet"
+  id: string;              // providerModelId or unique id
+  name: string;            // display name, e.g. "Claude 3.5 Sonnet v2"
   provider: string;        // "Anthropic" | "Amazon" | "Meta" | "Mistral"
   providerModelId: string; // e.g. "anthropic.claude-3-5-sonnet-20241022-v2:0"
   contextWindow?: string;
   category?: string;
+  tier?: string;
+  cost_in?: number;
+  cost_out?: number;
 }
 
-// ─── Governance & Routing Metadata ────────────────
+// ─── Governance Rules ────────────────────────────
+export interface GovernanceRule {
+  id?: string;
+  org_id?: string;
+  rule_type: string;       // 'allow_list' | 'throttle' | 'context_window'
+  scope?: string;
+  scope_target?: string;
+  config: {
+    allowed_bedrock_model_ids?: string[];
+    allowed_models?: string[];
+    max_input_tokens?: number;
+    min_input_tokens?: number;
+    max_output_tokens?: number;
+    max_total_tokens?: number;
+    rate_limit_rpm?: number;
+    burst_limit?: number;
+    quota_per_day_tokens?: number;
+    quota_per_day_requests?: number;
+    [key: string]: unknown;
+  };
+  mode: 'dry_run' | 'enforce';
+}
+
 export interface GovernanceEvaluation {
   rule_type: string;
   passed: boolean;
@@ -62,8 +88,9 @@ export interface ProfileSummary {
 
 export interface ModelRecommendation {
   rank: number;
-  model_id: string;
-  bedrock_model_id?: string;
+  model_id: string;             // router model id
+  bedrock_model_id: string;     // bedrock provider model id
+  display_name: string;         // display name
   provider: string;
   tier: string;
   estimated_cost_usd: number;
@@ -72,37 +99,48 @@ export interface ModelRecommendation {
   routing_score?: number;
 }
 
+export interface UserGuess {
+  guessed_model_id: string;
+  guessed_model_name: string;
+  is_match: boolean;
+  comparison_insight: string;
+}
+
 // ─── Requests & Responses ────────────────────────
 export interface PromptRequest {
   prompt: string;
+  guessed_bedrock_model_id?: string;
+  max_tokens?: number;
+  retry_bedrock_model_id?: string;
   selectedModelIds?: string[];
   preferredModelId?: string;
-  max_tokens?: number;
-  mode?: 'auto' | 'legacy';
-  enterprise_criticality?: string;
+  preferred_model_id?: string;
 }
 
 export interface ModelResponse {
   text: string;
   model_used: string;               // Bedrock model ID
   model_used_name: string;          // Display name
-  routed_model_id?: string;         // Friendly ID
-  user_selected_model?: string;
-  user_selected_model_name?: string;
-  comparison_insight?: string;
-  routing_reason?: string[];
+  routed_model_id?: string;         // Router model ID
+  profile_summary?: ProfileSummary;
+  governance_evaluations?: GovernanceEvaluation[];
+  recommendations?: ModelRecommendation[];
+  user_guess?: UserGuess;
+  warnings?: string[];
+  invocation_error?: string | null;
   tier?: string;
   complexity_score?: number;
   cost_estimate?: number;
-  fallback_used?: boolean;
-  fallback_from?: string;
-  fallback_chain?: string[];
-  fallback_count?: number;
   tokens_used?: number;
-  estimated_cost?: number;
   latency_ms?: number;
-  governance_evaluations?: GovernanceEvaluation[];
-  profile_summary?: ProfileSummary;
-  recommendations?: ModelRecommendation[];
-  warnings?: string[];
+  routing_reason?: string[];
+}
+
+export interface ProfileOnlyResponse {
+  profile: ProfileSummary;
+  resolved_tier: string;
+  recommendations: ModelRecommendation[];
+  rejections: Record<string, string>;
+  governance_evaluations: GovernanceEvaluation[];
+  warnings: string[];
 }

@@ -4,51 +4,45 @@ from app.services.model_mapping_service import ModelMappingService
 def test_model_mapping_service_lookups():
     service = ModelMappingService()
     
-    # Friendly -> Bedrock
-    bedrock_id = service.get_bedrock_id("claude-sonnet-5")
-    assert bedrock_id is not None
-    assert "claude-3-5-sonnet" in bedrock_id
+    # Router -> Bedrock
+    bedrock_id = service.get_bedrock_id("anthropic-claude-3-5-sonnet-v2")
+    assert bedrock_id == "anthropic.claude-3-5-sonnet-20241022-v2:0"
 
     nova_id = service.get_bedrock_id("amazon-nova-pro")
     assert nova_id == "amazon.nova-pro-v1:0"
 
-    # Bedrock -> Friendly
-    f_id = service.get_friendly_id("amazon.nova-pro-v1:0")
-    assert f_id == "amazon-nova-pro"
+    # Bedrock -> Router
+    r_id = service.get_router_id("amazon.nova-pro-v1:0")
+    assert r_id == "amazon-nova-pro"
 
-    f_claude = service.get_friendly_id("anthropic.claude-3-5-sonnet-20241022-v2:0")
-    assert f_claude == "claude-sonnet-5"
+    r_claude = service.get_router_id("anthropic.claude-3-5-sonnet-20241022-v2:0")
+    assert r_claude == "anthropic-claude-3-5-sonnet-v2"
+
+    # Cross-region inference profile prefix normalization
+    r_us_claude = service.get_router_id("us.anthropic.claude-3-5-sonnet-20241022-v2:0")
+    assert r_us_claude == "anthropic-claude-3-5-sonnet-v2"
 
 def test_allowed_catalog():
     service = ModelMappingService()
     catalog = service.get_allowed_catalog()
-    assert len(catalog) >= 5
+    assert len(catalog) >= 8
     names = [m.name for m in catalog]
-    assert "Claude 3.5 Sonnet" in names
+    assert "Claude 3.5 Sonnet v2" in names
     assert "Amazon Nova Pro" in names
+    assert "Llama 3.3 70B Instruct" in names
 
-def test_intersect_candidates():
+def test_batch_conversions():
     service = ModelMappingService()
-    connected_bedrock = [
+    bedrock_ids = [
         "anthropic.claude-3-5-sonnet-20241022-v2:0",
         "amazon.nova-pro-v1:0",
         "meta.llama3-3-70b-instruct-v1:0"
     ]
-    
-    # Case 1: Allow list has sonnet & nova
-    candidates, warnings = service.intersect_candidates(
-        user_selected_friendly_or_bedrock_ids=None,
-        connected_bedrock_model_ids=connected_bedrock,
-        allow_listed_friendly_ids=["claude-sonnet-5", "amazon-nova-pro"]
-    )
-    assert "claude-sonnet-5" in candidates
-    assert "amazon-nova-pro" in candidates
-    assert "llama-3.3-70b" not in candidates
+    router_ids = service.to_router_ids(bedrock_ids)
+    assert "anthropic-claude-3-5-sonnet-v2" in router_ids
+    assert "amazon-nova-pro" in router_ids
+    assert "meta-llama-3-3-70b-instruct" in router_ids
 
-    # Case 2: User specified only nova
-    candidates_user, _ = service.intersect_candidates(
-        user_selected_friendly_or_bedrock_ids=["amazon-nova-pro"],
-        connected_bedrock_model_ids=connected_bedrock,
-        allow_listed_friendly_ids=["claude-sonnet-5", "amazon-nova-pro"]
-    )
-    assert candidates_user == ["amazon-nova-pro"]
+    # Round trip
+    back_to_bedrock = service.to_bedrock_ids(router_ids)
+    assert set(back_to_bedrock) == set(bedrock_ids)
