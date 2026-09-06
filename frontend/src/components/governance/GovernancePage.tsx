@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import type { Model, ModelResponse, ModelRecommendation, Connection } from '../../types';
 import { getAvailableModels, getConnection, sendPrompt } from '../../services/mock/mockService';
+import { fetchGovernanceRules, saveGovernanceRule } from '../../services/apiService';
 
 interface GovernanceRule {
   rule_type: string;
@@ -99,25 +100,22 @@ export function GovernancePage() {
       setAllowedBedrockIds(allIds);
 
       if (user?.id) {
-        fetch('http://localhost:8000/api/governance/rules', { headers: { 'X-User-ID': user.id } })
-          .then(r => r.ok ? r.json() : [])
-          .then((rules: GovernanceRule[]) => {
-            rules.forEach(r => {
-              if (r.rule_type === 'allow_list' && r.config.allowed_bedrock_model_ids) {
-                const saved = r.config.allowed_bedrock_model_ids as string[];
-                const matched = ms.filter(m => saved.includes(m.providerModelId)).map(m => m.providerModelId);
-                if (matched.length > 0) setAllowedBedrockIds(matched);
-              } else if (r.rule_type === 'context_window') {
-                if (r.config.max_input_tokens) setMaxInputTokens(r.config.max_input_tokens as number);
-                if (r.config.max_output_tokens) setMaxOutputTokens(r.config.max_output_tokens as number);
-                if (r.config.max_total_tokens) setMaxTotalTokens(r.config.max_total_tokens as number);
-              } else if (r.rule_type === 'throttle') {
-                if (r.config.rate_limit_rpm) setRateLimitRpm(r.config.rate_limit_rpm as number);
-                if (r.config.quota_per_day_tokens) setDailyTokenQuota(r.config.quota_per_day_tokens as number);
-              }
-            });
-          })
-          .catch(() => {});
+        fetchGovernanceRules(user.id).then((rules: GovernanceRule[]) => {
+          rules.forEach(r => {
+            if (r.rule_type === 'allow_list' && r.config.allowed_bedrock_model_ids) {
+              const saved = r.config.allowed_bedrock_model_ids as string[];
+              const matched = ms.filter(m => saved.includes(m.providerModelId)).map(m => m.providerModelId);
+              if (matched.length > 0) setAllowedBedrockIds(matched);
+            } else if (r.rule_type === 'context_window') {
+              if (r.config.max_input_tokens) setMaxInputTokens(r.config.max_input_tokens as number);
+              if (r.config.max_output_tokens) setMaxOutputTokens(r.config.max_output_tokens as number);
+              if (r.config.max_total_tokens) setMaxTotalTokens(r.config.max_total_tokens as number);
+            } else if (r.rule_type === 'throttle') {
+              if (r.config.rate_limit_rpm) setRateLimitRpm(r.config.rate_limit_rpm as number);
+              if (r.config.quota_per_day_tokens) setDailyTokenQuota(r.config.quota_per_day_tokens as number);
+            }
+          });
+        });
       }
     });
   }, [user?.id]);
@@ -127,23 +125,13 @@ export function GovernancePage() {
 
   const handleSaveGuardrails = async () => {
     setSavingRules(true); setRulesSaveOk(false); setRulesSaveErr('');
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (user?.id) headers['X-User-ID'] = user.id;
     try {
-      await Promise.all([
-        fetch('http://localhost:8000/api/governance/rules', {
-          method: 'POST', headers,
-          body: JSON.stringify({ rule_type: 'allow_list', mode: 'enforce', config: { allowed_bedrock_model_ids: allowedBedrockIds } })
-        }),
-        fetch('http://localhost:8000/api/governance/rules', {
-          method: 'POST', headers,
-          body: JSON.stringify({ rule_type: 'context_window', mode: 'enforce', config: { max_input_tokens: maxInputTokens, max_output_tokens: maxOutputTokens, max_total_tokens: maxTotalTokens } })
-        }),
-        fetch('http://localhost:8000/api/governance/rules', {
-          method: 'POST', headers,
-          body: JSON.stringify({ rule_type: 'throttle', mode: 'enforce', config: { rate_limit_rpm: rateLimitRpm, quota_per_day_tokens: dailyTokenQuota } })
-        }),
+      const results = await Promise.all([
+        saveGovernanceRule({ rule_type: 'allow_list', mode: 'enforce', config: { allowed_bedrock_model_ids: allowedBedrockIds } }, user?.id),
+        saveGovernanceRule({ rule_type: 'context_window', mode: 'enforce', config: { max_input_tokens: maxInputTokens, max_output_tokens: maxOutputTokens, max_total_tokens: maxTotalTokens } }, user?.id),
+        saveGovernanceRule({ rule_type: 'throttle', mode: 'enforce', config: { rate_limit_rpm: rateLimitRpm, quota_per_day_tokens: dailyTokenQuota } }, user?.id),
       ]);
+      if (results.some(ok => !ok)) throw new Error('One or more guardrail rules failed to save');
       setRulesSaveOk(true);
       setTimeout(() => { setRulesSaveOk(false); setGuardrailsOpen(false); }, 1500);
     } catch (e) {

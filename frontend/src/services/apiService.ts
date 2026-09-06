@@ -64,6 +64,36 @@ export async function fetchAllowedCatalog(): Promise<Model[]> {
   }
 }
 
+export async function fetchGovernanceRules(userId?: string): Promise<Array<{ rule_type: string; mode: string; config: Record<string, unknown> }>> {
+  try {
+    const headers: Record<string, string> = {};
+    if (userId) headers['X-User-ID'] = userId;
+    const res = await fetch(`${API_BASE}/governance/rules`, { headers });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function saveGovernanceRule(
+  rule: { rule_type: string; mode: string; config: Record<string, unknown> },
+  userId?: string
+): Promise<boolean> {
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (userId) headers['X-User-ID'] = userId;
+    const res = await fetch(`${API_BASE}/governance/rules`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(rule),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function sendPromptToBackend(req: PromptRequest, userId?: string): Promise<ModelResponse> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',

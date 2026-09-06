@@ -67,5 +67,7 @@ async def get_cloudformation_template():
     )
 
 if __name__ == "__main__":
+    import os
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    dev_reload = os.getenv("UVICORN_RELOAD", "true").lower() == "true"
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=dev_reload)
