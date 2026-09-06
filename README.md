@@ -36,6 +36,52 @@ Profiling_Routing/
 └── team_task_specs.md                # Capstone project specifications
 ```
 
+## Architecture
+
+```mermaid
+flowchart TB
+    U[User Browser]
+
+    subgraph FE["Frontend — React + Vite"]
+        CONN[Connections Page]
+        GOV[Governance Page]
+        MODELS[Model Registry Page]
+    end
+
+    subgraph BE["Backend — FastAPI"]
+        CONNAPI["/api/connection"]
+        PROMPTAPI["/api/prompt"]
+        GOVAPI["/api/governance"]
+
+        subgraph PIPE["Route & Invoke Pipeline"]
+            GOVSVC[Governance Service<br/>allow-list · context window · throttle]
+            PROFILER[ML Prompt Profiler<br/>sentence-transformer + XGBoost]
+            ROUTER[Model Router<br/>weighted scoring, top 3]
+            INVOKE[Bedrock Invoke Service<br/>per-model-family translation]
+        end
+    end
+
+    SB[(Supabase<br/>connections · governance_rules)]
+    AWS_STS[Customer AWS Account<br/>STS AssumeRole]
+    BEDROCK[AWS Bedrock<br/>Claude · Nova · Llama · Mistral]
+
+    U --> CONN & GOV & MODELS
+    CONN --> CONNAPI
+    GOV --> PROMPTAPI
+    GOV --> GOVAPI
+    MODELS --> PROMPTAPI
+
+    CONNAPI <--> SB
+    GOVAPI <--> SB
+
+    PROMPTAPI --> GOVSVC --> PROFILER --> ROUTER --> INVOKE
+    CONNAPI -.verified role_arn.-> INVOKE
+    INVOKE --> AWS_STS --> BEDROCK
+    BEDROCK --> INVOKE --> PROMPTAPI --> GOV
+```
+
+Rank #1 from the router is invoked automatically; if it fails, the UI surfaces a manual retry for rank #2/#3 — there is no automatic fallback cascade.
+
 ## Features
 
 - **Supabase Authentication** — Email/password sign-up and sign-in, with a local dev-mode fallback
