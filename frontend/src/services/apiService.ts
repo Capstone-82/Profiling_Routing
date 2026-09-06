@@ -1,6 +1,6 @@
 import type { Connection, Model, ModelResponse, PromptRequest } from '../types';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api';
 
 export async function fetchConnectionFromBackend(userId?: string): Promise<Connection | null> {
   try {
@@ -61,6 +61,36 @@ export async function fetchAllowedCatalog(): Promise<Model[]> {
     return await res.json();
   } catch {
     return [];
+  }
+}
+
+export async function fetchGovernanceRules(userId?: string): Promise<Array<{ rule_type: string; mode: string; config: Record<string, unknown> }>> {
+  try {
+    const headers: Record<string, string> = {};
+    if (userId) headers['X-User-ID'] = userId;
+    const res = await fetch(`${API_BASE}/governance/rules`, { headers });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function saveGovernanceRule(
+  rule: { rule_type: string; mode: string; config: Record<string, unknown> },
+  userId?: string
+): Promise<boolean> {
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (userId) headers['X-User-ID'] = userId;
+    const res = await fetch(`${API_BASE}/governance/rules`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(rule),
+    });
+    return res.ok;
+  } catch {
+    return false;
   }
 }
 

@@ -169,6 +169,10 @@ class BedrockInvokeService:
         Resolves foundation model ID to cross-region inference profile ID when required.
         AWS Bedrock requires system inference profiles (e.g. 'us.meta.llama3-1-8b-instruct-v1:0')
         for on-demand invocation of Llama models and other cross-region supported models.
+
+        Verified against a live bedrock:ListFoundationModels call (2026-09-06): every current-generation
+        Anthropic model on Bedrock (Opus 5, Sonnet 5, Haiku 4.5, Sonnet 4.6, Fable 5, Opus 4.x) is
+        INFERENCE_PROFILE-only -- the sole ON_DEMAND-direct exception is the legacy Claude 3 Haiku SKU.
         """
         target_region = region or settings.AWS_REGION or "us-east-1"
         prefix = "us." if target_region.startswith("us-") else ("eu." if target_region.startswith("eu-") else "us.")
@@ -179,6 +183,10 @@ class BedrockInvokeService:
 
         # Meta Llama models require inference profile on Bedrock for on-demand invoke
         if bedrock_model_id.startswith("meta.llama"):
+            return f"{prefix}{bedrock_model_id}"
+
+        # Current-gen Anthropic models require inference profile too, except legacy Claude 3 Haiku
+        if bedrock_model_id.startswith("anthropic.claude") and "claude-3-haiku" not in bedrock_model_id:
             return f"{prefix}{bedrock_model_id}"
 
         return bedrock_model_id
@@ -194,23 +202,15 @@ class BedrockInvokeService:
     ) -> Dict[str, Any]:
         """
         Executes InvokeModel on AWS Bedrock via customer credentials.
-        Returns: { 'text': str, 'tokens_used': int, 'latency_ms': float, 'simulated': bool }
+        Returns: { 'text': str, 'tokens_used': int, 'latency_ms': float }
+        Raises on any failure -- callers must not fabricate a response when this fails.
         """
         start_time = time.time()
 
-        # If role_arn is missing or is a local demo/test run, return clean demonstration response
         if not role_arn or not role_arn.startswith("arn:aws:iam::"):
-            time.sleep(0.4)
-            latency = round((time.time() - start_time) * 1000, 2)
-            est_tokens = len(prompt.split()) + 150
-            return {
-                "text": f"Simulated response from {bedrock_model_id}:\n\n"
-                        f"Processed prompt with governance policies applied. "
-                        f"Target Bedrock model `{bedrock_model_id}` answered successfully.",
-                "tokens_used": est_tokens,
-                "latency_ms": latency,
-                "simulated": True
-            }
+            raise ValueError(
+                "No verified AWS Bedrock connection: a valid role_arn is required to invoke a model."
+            )
 
         actual_model_id = self._resolve_bedrock_model_id(bedrock_model_id, region=region)
         client = None
@@ -242,8 +242,7 @@ class BedrockInvokeService:
             return {
                 "text": text,
                 "tokens_used": tokens,
-                "latency_ms": latency,
-                "simulated": False
+                "latency_ms": latency
             }
 
         except (ClientError, BotoCoreError) as e:

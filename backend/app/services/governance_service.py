@@ -7,10 +7,11 @@ import httpx
 from app.config import settings
 from app.services.supabase_service import ensure_uuid, get_supabase_headers
 from app.services.routing.router import count_input_tokens
+from app.services.model_mapping_service import model_mapping_service
 
 class GovernanceRuleConfig(BaseModel):
-    # allow_list
-    allowed_models: Optional[List[str]] = None
+    # allow_list -- stores actual Bedrock provider model IDs, not internal friendly/router IDs
+    allowed_bedrock_model_ids: Optional[List[str]] = None
     
     # context_window
     max_input_tokens: Optional[int] = 200000
@@ -46,7 +47,7 @@ class GovernanceResult(BaseModel):
     passed: bool
     blocked_by_enforce: bool
     evaluations: List[GovernanceEvaluation]
-    allowed_models: Optional[List[str]] = None
+    allowed_bedrock_model_ids: Optional[List[str]] = None
     estimated_input_tokens: int = 0
 
 
@@ -122,17 +123,10 @@ DEFAULT_GOVERNANCE_RULES = [
         "rule_type": "allow_list",
         "mode": "enforce",
         "config": {
-            "allowed_models": [
-                "claude-sonnet-5",
-                "claude-haiku-4-5-20251001",
-                "claude-opus-5",
-                "amazon-nova-pro",
-                "amazon-nova-lite",
-                "amazon-nova-micro",
-                "llama-3.3-70b",
-                "llama-4-scout",
-                "mistral-large-3",
-                "mistral-small"
+            # Default: every model in the maintained Bedrock catalog is allowed until an admin
+            # narrows it down in Governance. Real Bedrock IDs, not internal friendly/router IDs.
+            "allowed_bedrock_model_ids": [
+                m.providerModelId for m in model_mapping_service.get_allowed_catalog()
             ]
         }
     }
@@ -215,11 +209,12 @@ class GovernanceService:
         self,
         org_id: str,
         prompt: str,
-        user_specified_models: Optional[List[str]] = None,
         max_tokens: Optional[int] = None
     ) -> GovernanceResult:
         """
         Executes governance evaluations (Context Window, Throttle, Allow-list) against the prompt.
+        Read-only: does not mutate throttle/quota counters. Call record_request_attempt()
+        separately once an actual invocation attempt happens.
         """
         rules = await self.get_rules_for_org(org_id)
         est_tokens = count_input_tokens(prompt)
@@ -227,7 +222,7 @@ class GovernanceService:
 
         evaluations: List[GovernanceEvaluation] = []
         blocked_by_enforce = False
-        allowed_models_result: Optional[List[str]] = None
+        allowed_bedrock_ids_result: Optional[List[str]] = None
 
         for rule in rules:
             cfg = rule.config or {}
@@ -293,8 +288,8 @@ class GovernanceService:
                 ))
 
             elif rule.rule_type == "allow_list":
-                allowed = cfg.get("allowed_models", [])
-                allowed_models_result = allowed
+                allowed = cfg.get("allowed_bedrock_model_ids", [])
+                allowed_bedrock_ids_result = allowed
                 passed = True
                 msg = f"Allow-list policy active ({len(allowed)} models permitted)."
 
@@ -302,8 +297,8 @@ class GovernanceService:
                     passed = False
                     msg = "Allow-list is empty. No models permitted."
 
-                if not passed and mode == "enforce":
-                    blocked_by_enforce = True
+                # allow_list is reported here for visibility only -- the caller (prompt route) is
+                # responsible for the empty-list-or-empty-candidate-pool 400s, not blocked_by_enforce.
 
                 evaluations.append(GovernanceEvaluation(
                     rule_type="allow_list",
@@ -315,16 +310,21 @@ class GovernanceService:
 
         overall_passed = not blocked_by_enforce
 
-        # Record this request for throttling metrics
-        throttle_tracker.record_request(org_id, est_tokens)
-
         return GovernanceResult(
             passed=overall_passed,
             blocked_by_enforce=blocked_by_enforce,
             evaluations=evaluations,
-            allowed_models=allowed_models_result,
+            allowed_bedrock_model_ids=allowed_bedrock_ids_result,
             estimated_input_tokens=est_tokens
         )
+
+    def record_request_attempt(self, org_id: str, tokens: int = 0) -> None:
+        """
+        Records a real invocation attempt against throttle/quota counters.
+        Must be called once per actual route-and-invoke attempt (initial or retry) --
+        never during a profile-only preview, which does not consume any quota.
+        """
+        throttle_tracker.record_request(org_id, tokens)
 
 
 governance_service = GovernanceService()
