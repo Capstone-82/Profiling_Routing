@@ -39,14 +39,40 @@ async def test_governance_throttle_dry_run():
     )
     await service.save_rule(rule)
 
-    # Send first request
+    # Send first request, then record it as an actual attempt (evaluate_prompt itself no longer mutates)
     res1 = await service.evaluate_prompt(org_id, "Hello")
     assert res1.passed is True
+    service.record_request_attempt(org_id, res1.estimated_input_tokens)
 
-    # Send second request immediately (exceeds 1 rpm)
+    # Send second request immediately (exceeds 1 rpm because the first attempt was recorded)
     res2 = await service.evaluate_prompt(org_id, "Hello again")
     # Because it is dry_run, blocked_by_enforce should be False, but evaluation flag is False
     assert res2.blocked_by_enforce is False
     throttle_eval = next(e for e in res2.evaluations if e.rule_type == "throttle")
     assert throttle_eval.passed is False
     assert throttle_eval.mode == "dry_run"
+
+
+@pytest.mark.asyncio
+async def test_evaluate_prompt_does_not_mutate_throttle():
+    service = GovernanceService()
+    org_id = "test-org-evaluate-only"
+
+    stats_before = throttle_tracker.get_stats(org_id)
+    await service.evaluate_prompt(org_id, "Hello there, just previewing.")
+    stats_after = throttle_tracker.get_stats(org_id)
+
+    assert stats_after == stats_before
+
+
+@pytest.mark.asyncio
+async def test_record_request_attempt_mutates_throttle():
+    service = GovernanceService()
+    org_id = "test-org-record-attempt"
+
+    stats_before = throttle_tracker.get_stats(org_id)
+    service.record_request_attempt(org_id, tokens=50)
+    stats_after = throttle_tracker.get_stats(org_id)
+
+    assert stats_after["rpm"] == stats_before["rpm"] + 1
+    assert stats_after["tokens_24h"] == stats_before["tokens_24h"] + 50

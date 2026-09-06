@@ -62,8 +62,9 @@ export interface ProfileSummary {
 
 export interface ModelRecommendation {
   rank: number;
-  model_id: string;
+  model_id: string;               // internal router/friendly ID
   bedrock_model_id?: string;
+  display_name?: string;
   provider: string;
   tier: string;
   estimated_cost_usd: number;
@@ -72,37 +73,31 @@ export interface ModelRecommendation {
   routing_score?: number;
 }
 
+export interface UserGuess {
+  bedrock_model_id: string;
+  display_name?: string;
+  matched_top_pick: boolean;
+  insight: string;
+}
+
 // ─── Requests & Responses ────────────────────────
 export interface PromptRequest {
   prompt: string;
-  selectedModelIds?: string[];
-  preferredModelId?: string;
+  guessed_bedrock_model_id?: string;
   max_tokens?: number;
-  mode?: 'auto' | 'legacy';
-  enterprise_criticality?: string;
+  retry_bedrock_model_id?: string;
 }
 
 export interface ModelResponse {
   text: string;
-  model_used: string;               // Bedrock model ID
-  model_used_name: string;          // Display name
-  routed_model_id?: string;         // Friendly ID
-  user_selected_model?: string;
-  user_selected_model_name?: string;
-  comparison_insight?: string;
-  routing_reason?: string[];
-  tier?: string;
-  complexity_score?: number;
-  cost_estimate?: number;
-  fallback_used?: boolean;
-  fallback_from?: string;
-  fallback_chain?: string[];
-  fallback_count?: number;
-  tokens_used?: number;
-  estimated_cost?: number;
-  latency_ms?: number;
-  governance_evaluations?: GovernanceEvaluation[];
+  model_used?: string;              // Bedrock model ID actually invoked (or attempted, on failure)
+  model_used_name?: string;         // Display name
   profile_summary?: ProfileSummary;
+  governance_evaluations?: GovernanceEvaluation[];
   recommendations?: ModelRecommendation[];
+  user_guess?: UserGuess;
   warnings?: string[];
+  invocation_error?: string | null;
+  tokens_used?: number;
+  latency_ms?: number;
 }

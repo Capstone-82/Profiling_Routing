@@ -15,7 +15,7 @@
     "known_scheduled_changes": [
       {
         "model_id": "claude-sonnet-5",
-        "change": "introductory $2/$10 pricing expires 2026-08-31, standard $3/$15 begins 2026-09-01"
+        "change": "APPLIED 2026-09-06: introductory $2/$10 pricing expired 2026-08-31, standard $3/$15 now in effect (cost_in/cost_out below updated)"
       },
       {
         "model_id": "gemini-2.5-flash-lite",
@@ -128,8 +128,8 @@
       "provider": "anthropic",
       "generation": "current",
       "tier": "T2",
-      "cost_in": 2.0,
-      "cost_out": 10.0,
+      "cost_in": 3.0,
+      "cost_out": 15.0,
       "max_input_tokens": 1000000,
       "max_output_tokens": 65536,
       "tool_tier": 3,
@@ -529,14 +529,14 @@
       "provider": "meta",
       "generation": "current",
       "tier": "T1",
-      "cost_in": 0.1,
-      "cost_out": 0.3,
+      "cost_in": 0.17,
+      "cost_out": 0.66,
       "max_input_tokens": 10000000,
       "max_output_tokens": 16384,
       "tool_tier": 2,
       "reasoning_mode": false,
       "speed_tokens_per_sec": 98,
-      "pricing_confidence": "estimate_host_dependent",
+      "pricing_confidence": "verified",
       "domain_strengths": [
         "extremely_long_context_reading",
         "cheap_high_volume"
@@ -547,14 +547,14 @@
       "provider": "meta",
       "generation": "current",
       "tier": "T1",
-      "cost_in": 0.2,
-      "cost_out": 0.6,
+      "cost_in": 0.24,
+      "cost_out": 0.97,
       "max_input_tokens": 1000000,
       "max_output_tokens": 16384,
       "tool_tier": 2,
       "reasoning_mode": false,
       "speed_tokens_per_sec": 116,
-      "pricing_confidence": "estimate_host_dependent",
+      "pricing_confidence": "verified",
       "domain_strengths": [
         "general_purpose_budget",
         "vision"
@@ -572,26 +572,43 @@
       "tool_tier": 2,
       "reasoning_mode": false,
       "speed_tokens_per_sec": null,
-      "pricing_confidence": "conflicting_sources",
+      "pricing_confidence": "verified",
       "domain_strengths": [
         "legacy_compatibility"
       ]
     },
     {
-      "model_id": "llama-3.1-405b",
+      "model_id": "llama-3.1-8b",
       "provider": "meta",
-      "generation": "legacy",
-      "tier": "T2",
-      "cost_in": 0.65,
-      "cost_out": 0.8,
+      "generation": "previous",
+      "tier": "T1",
+      "cost_in": 0.22,
+      "cost_out": 0.22,
       "max_input_tokens": 128000,
-      "max_output_tokens": 4096,
+      "max_output_tokens": 8192,
+      "tool_tier": 1,
+      "reasoning_mode": false,
+      "speed_tokens_per_sec": null,
+      "pricing_confidence": "verified",
+      "domain_strengths": [
+        "cheap_high_volume"
+      ]
+    },
+    {
+      "model_id": "llama-3.1-70b",
+      "provider": "meta",
+      "generation": "previous",
+      "tier": "T2",
+      "cost_in": 0.72,
+      "cost_out": 0.72,
+      "max_input_tokens": 128000,
+      "max_output_tokens": 8192,
       "tool_tier": 2,
       "reasoning_mode": false,
       "speed_tokens_per_sec": null,
-      "pricing_confidence": "conflicting_sources",
+      "pricing_confidence": "verified",
       "domain_strengths": [
-        "legacy_large_dense_model"
+        "general_purpose_budget"
       ]
     },
     {
@@ -599,14 +616,14 @@
       "provider": "mistral",
       "generation": "current",
       "tier": "T2",
-      "cost_in": 2.0,
-      "cost_out": 6.0,
+      "cost_in": 0.5,
+      "cost_out": 1.5,
       "max_input_tokens": 128000,
       "max_output_tokens": 8192,
       "tool_tier": 2,
       "reasoning_mode": false,
       "speed_tokens_per_sec": null,
-      "pricing_confidence": "conflicting_sources",
+      "pricing_confidence": "verified",
       "domain_strengths": [
         "output_heavy_tasks",
         "EU_data_residency"
@@ -617,14 +634,14 @@
       "provider": "mistral",
       "generation": "current",
       "tier": "T1",
-      "cost_in": 0.1,
-      "cost_out": 0.3,
+      "cost_in": 1.0,
+      "cost_out": 3.0,
       "max_input_tokens": 32000,
       "max_output_tokens": 8192,
       "tool_tier": 2,
       "reasoning_mode": false,
       "speed_tokens_per_sec": 140,
-      "pricing_confidence": "estimate",
+      "pricing_confidence": "verified",
       "domain_strengths": [
         "classification",
         "extraction",

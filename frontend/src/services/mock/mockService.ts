@@ -181,75 +181,10 @@ export async function resetConnection(userId?: string): Promise<void> {
   localStorage.removeItem('cs_bedrock_connection');
 }
 
-// ─── Real Prompt Router + Fallback ────────────────────────────────────────────
+// ─── Real Prompt Router (no offline fallback -- fails honestly if the backend is unreachable) ──
 
 export async function sendPrompt(request: PromptRequest, userId?: string): Promise<ModelResponse> {
   if (!request.prompt.trim()) throw new Error('Prompt cannot be empty');
-
-  try {
-    // 1. Send to real FastAPI backend pipeline
-    return await sendPromptToBackend(request, userId);
-  } catch (err: unknown) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    // If it's a governance policy failure (403), rethrow directly to display to user
-    if (errMsg.includes('Governance policy violation') || errMsg.includes('exceed') || errMsg.includes('Rate limit')) {
-      throw err;
-    }
-
-    // 2. Client-side fallback if backend API server is offline
-    await new Promise(r => setTimeout(r, 1400));
-    const allModels = MOCK_AVAILABLE_MODELS;
-    const selected = allModels.filter(m => request.selectedModelIds?.includes(m.id));
-    const answered = selected[0] || allModels[0];
-
-    const tokens = 150 + Math.floor(Math.random() * 250);
-    const latency = 340 + Math.floor(Math.random() * 300);
-
-    return {
-      text: `[Offline Demo Fallback]\n\nProcessed prompt with prompt profiling & routing simulation.\n\nRouted to **${answered.name}** based on semantic complexity and cost-optimal policy.\n\nInput prompt: "${request.prompt}"`,
-      model_used: answered.providerModelId,
-      model_used_name: answered.name,
-      routed_model_id: answered.id,
-      routing_reason: [
-        `Direct tier match (${answered.category || 'General'})`,
-        'Optimal cost efficiency per token',
-        'Satisfies context capacity requirements'
-      ],
-      tier: 'T2',
-      complexity_score: 0.52,
-      cost_estimate: 0.00045,
-      tokens_used: tokens,
-      latency_ms: latency,
-      governance_evaluations: [
-        { rule_type: 'context_window', passed: true, mode: 'enforce', message: 'Context window within limits' },
-        { rule_type: 'throttle', passed: true, mode: 'dry_run', message: 'Request rate within threshold' },
-        { rule_type: 'allow_list', passed: true, mode: 'enforce', message: 'Model in permitted allow-list' },
-      ],
-      profile_summary: {
-        domain: 'Cloud Computing',
-        intent: 'ANALYTICAL',
-        task_type: 'architecture_evaluation',
-        derived_tier: 'T2',
-        resolved_tier: 'T2',
-        complexity_score: 0.52,
-        confidence: 0.88,
-        reasoning_chain_detected: false,
-        research_signals: ['cloud_infrastructure'],
-        input_token_count: lenTokens(request.prompt),
-        est_output_tokens: 1500,
-        dimensions: {
-          d1_semantic_complexity: 0.5,
-          d2_domain_specificity: 0.5,
-          d3_output_formality: 0.5,
-          d4_research_dependency: 0.25,
-          d5_context_requirement: 0.25,
-        }
-      }
-    };
-  }
-}
-
-function lenTokens(text: string): number {
-  return Math.max(1, Math.floor(text.trim().split(/\s+/).length * 1.3));
+  return await sendPromptToBackend(request, userId);
 }
 

@@ -31,7 +31,7 @@ export function Footer() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: '12px' }}>
-            <Link to="/playground" className="cs-btn" style={{ background: '#fff', color: 'var(--cs-blue)', borderRadius: 'var(--cs-radius-pill)', fontWeight: 700, padding: '0 24px' }}>
+            <Link to="/governance" className="cs-btn" style={{ background: '#fff', color: 'var(--cs-blue)', borderRadius: 'var(--cs-radius-pill)', fontWeight: 700, padding: '0 24px' }}>
               Explore AI Gateway
             </Link>
             <a href="https://www.corestack.io" target="_blank" rel="noreferrer" className="cs-btn" style={{ background: 'transparent', border: '2px solid #fff', color: '#fff', borderRadius: 'var(--cs-radius-pill)', fontWeight: 600, padding: '0 24px', textDecoration: 'none' }}>
@@ -69,7 +69,7 @@ export function Footer() {
               By Product
             </h4>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
-              <li><Link to="/playground" style={{ color: '#CBD5E1', textDecoration: 'none' }}>AI Model Gateway</Link></li>
+              <li><Link to="/governance" style={{ color: '#CBD5E1', textDecoration: 'none' }}>AI Model Gateway</Link></li>
               <li><Link to="/connections" style={{ color: '#CBD5E1', textDecoration: 'none' }}>Cloud Provider IAM Trust</Link></li>
               <li><a href="https://www.corestack.io" target="_blank" rel="noreferrer" style={{ color: '#CBD5E1', textDecoration: 'none' }}>FinOps+ Cost Optimization</a></li>
               <li><a href="https://www.corestack.io" target="_blank" rel="noreferrer" style={{ color: '#CBD5E1', textDecoration: 'none' }}>SecOps+ Security Guardrails</a></li>

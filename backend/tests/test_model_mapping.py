@@ -7,7 +7,7 @@ def test_model_mapping_service_lookups():
     # Friendly -> Bedrock
     bedrock_id = service.get_bedrock_id("claude-sonnet-5")
     assert bedrock_id is not None
-    assert "claude-3-5-sonnet" in bedrock_id
+    assert bedrock_id == "anthropic.claude-sonnet-5"
 
     nova_id = service.get_bedrock_id("amazon-nova-pro")
     assert nova_id == "amazon.nova-pro-v1:0"
@@ -16,7 +16,7 @@ def test_model_mapping_service_lookups():
     f_id = service.get_friendly_id("amazon.nova-pro-v1:0")
     assert f_id == "amazon-nova-pro"
 
-    f_claude = service.get_friendly_id("anthropic.claude-3-5-sonnet-20241022-v2:0")
+    f_claude = service.get_friendly_id("anthropic.claude-sonnet-5")
     assert f_claude == "claude-sonnet-5"
 
 def test_allowed_catalog():
@@ -24,7 +24,7 @@ def test_allowed_catalog():
     catalog = service.get_allowed_catalog()
     assert len(catalog) >= 5
     names = [m.name for m in catalog]
-    assert "Claude 3.5 Sonnet" in names
+    assert "Claude Sonnet 5" in names
     assert "Amazon Nova Pro" in names
 
 def test_intersect_candidates():
@@ -52,3 +52,14 @@ def test_intersect_candidates():
         allow_listed_friendly_ids=["claude-sonnet-5", "amazon-nova-pro"]
     )
     assert candidates_user == ["amazon-nova-pro"]
+
+
+def test_every_catalog_model_has_a_bedrock_id_mapping():
+    """Every catalog entry must round-trip providerModelId -> friendly_id -> providerModelId cleanly."""
+    service = ModelMappingService()
+    catalog = service.get_allowed_catalog()
+    assert len(catalog) > 0
+    for model in catalog:
+        assert model.providerModelId in service.bedrock_to_friendly
+        friendly = service.bedrock_to_friendly[model.providerModelId]
+        assert service.friendly_to_bedrock.get(friendly) == model.providerModelId
