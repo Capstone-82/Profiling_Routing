@@ -54,7 +54,7 @@ function RequireConnection({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!user) return;
-    getConnection().then(conn => {
+    getConnection(user.id).then(conn => {
       if (conn.status !== 'verified') {
         navigate('/connections', { replace: true });
       } else {

@@ -322,6 +322,7 @@ class ModelRouter:
         include_legacy: bool,
         required_capabilities: List[str],
         allowed_model_ids: Optional[List[str]] = None,
+        relax_tier_ceilings: bool = False,
     ) -> Tuple[List[ModelCandidate], Dict[str, str]]:
         rejections = {}
         survivors = []
@@ -354,25 +355,26 @@ class ModelRouter:
                 rejections[model.model_id] = f"availability_status={model.availability_status}"
                 continue
 
-            # Filter 3: Resolved tier rank check
-            if TIER_RANK[model.tier] < TIER_RANK[resolved_tier]:
-                rejections[model.model_id] = (
-                    f"model tier {model.tier} < resolved tier {resolved_tier}"
-                )
-                continue
+            # Filter 3: Resolved tier rank check (relaxable if no candidates in allowed pool)
+            if not relax_tier_ceilings:
+                if TIER_RANK[model.tier] < TIER_RANK[resolved_tier]:
+                    rejections[model.model_id] = (
+                        f"model tier {model.tier} < resolved tier {resolved_tier}"
+                    )
+                    continue
 
-            # Filter 4: Per-dimension ceiling check
-            tier_def = self.registry.tier_definitions.get(model.tier, {"d1_max": 1.0, "d2_max": 1.0, "d3_max": 1.0})
-            dim_fail = None
-            for dim, ceil_key in [("d1", "d1_max"), ("d2", "d2_max"), ("d3", "d3_max")]:
-                val = getattr(profile, dim)
-                ceiling = tier_def[ceil_key]
-                if val > ceiling:
-                    dim_fail = f"{dim}={val} exceeds {model.tier} ceiling {ceil_key}={ceiling}"
-                    break
-            if dim_fail:
-                rejections[model.model_id] = dim_fail
-                continue
+                # Filter 4: Per-dimension ceiling check
+                tier_def = self.registry.tier_definitions.get(model.tier, {"d1_max": 1.0, "d2_max": 1.0, "d3_max": 1.0})
+                dim_fail = None
+                for dim, ceil_key in [("d1", "d1_max"), ("d2", "d2_max"), ("d3", "d3_max")]:
+                    val = getattr(profile, dim)
+                    ceiling = tier_def[ceil_key]
+                    if val > ceiling:
+                        dim_fail = f"{dim}={val} exceeds {model.tier} ceiling {ceil_key}={ceiling}"
+                        break
+                if dim_fail:
+                    rejections[model.model_id] = dim_fail
+                    continue
 
             # Filter 5: Input token capacity check (with 15% safety margin)
             if input_with_margin > model.max_input_tokens:
@@ -400,11 +402,6 @@ class ModelRouter:
             ]
             if missing_capabilities:
                 rejections[model.model_id] = f"missing required capabilities: {', '.join(missing_capabilities)}"
-                continue
-
-            # Filter 6: Reasoning gate
-            if profile.reasoning_chain_detected and not model.reasoning_mode:
-                rejections[model.model_id] = "reasoning_chain_detected=true but reasoning_mode=false"
                 continue
 
             survivors.append(model)
@@ -507,8 +504,10 @@ class ModelRouter:
         reasons = []
         if model.tier == resolved_tier:
             reasons.append(f"Direct tier match ({model.tier})")
+        elif TIER_RANK.get(model.tier, 0) > TIER_RANK.get(resolved_tier, 0):
+            reasons.append(f"Over-provisioned tier ({model.tier} for {resolved_tier} prompt - quality margin)")
         else:
-            reasons.append(f"Over-provisioned tier ({model.tier} for {resolved_tier} prompt)")
+            reasons.append(f"Economy tier ({model.tier} for {resolved_tier} prompt - cost-optimal available model)")
 
         if profile.reasoning_chain_detected and model.reasoning_mode:
             reasons.append("Supports required reasoning mode")
@@ -553,6 +552,17 @@ class ModelRouter:
             required_capabilities or [],
             allowed_model_ids=allowed_model_ids,
         )
+
+        # Graceful tier relaxation if no allowed models satisfy resolved_tier
+        if not survivors and allowed_model_ids:
+            survivors, _ = self._filter(
+                profile,
+                resolved_tier,
+                include_legacy,
+                required_capabilities or [],
+                allowed_model_ids=allowed_model_ids,
+                relax_tier_ceilings=True,
+            )
         ranked = self._rank_weighted(survivors, profile, resolved_tier, enterprise_criticality) if survivors else []
 
         recommendations = []

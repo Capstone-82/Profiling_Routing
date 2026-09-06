@@ -162,13 +162,13 @@ export async function testConnection(roleArn: string, userId?: string): Promise<
   return conn;
 }
 
-export async function getAvailableModels(): Promise<Model[]> {
+export async function getAvailableModels(userId?: string): Promise<Model[]> {
   const backendCatalog = await fetchAllowedCatalog();
   if (backendCatalog.length > 0) {
     return backendCatalog;
   }
 
-  const conn = await getConnection();
+  const conn = await getConnection(userId);
   if (conn.availableModels && conn.availableModels.length > 0) {
     return conn.availableModels;
   }

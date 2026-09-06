@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { CoreStackLogo } from '../common/Logo';
-import { LogOut, ChevronDown, Cpu, Search } from 'lucide-react';
+import { LogOut, ChevronDown, Cpu, Search, ShieldCheck } from 'lucide-react';
 
 interface AppHeaderProps {
   activePath: string;
@@ -22,6 +22,7 @@ export function AppHeader({ activePath }: AppHeaderProps) {
   const navLinks = [
     { to: '/connections', label: 'Connections' },
     { to: '/playground', label: 'AI Playground' },
+    { to: '/governance', label: 'AI Governance' },
     { to: '/models', label: 'Model Registry' },
   ];
 
@@ -201,6 +202,17 @@ export function AppHeader({ activePath }: AppHeaderProps) {
                         >
                           <Cpu size={15} style={{ color: '#0072CE' }} />
                           Connections
+                        </Link>
+                        <Link
+                          to="/governance"
+                          onClick={() => setMenuOpen(false)}
+                          style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', borderRadius: '6px', color: '#2B3F57', fontSize: '13px', fontWeight: 600, textDecoration: 'none', transition: 'background 0.1s' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = '#EBF4FD')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                          role="menuitem"
+                        >
+                          <ShieldCheck size={15} style={{ color: '#0072CE' }} />
+                          AI Governance
                         </Link>
                         <button
                           onClick={handleSignOut}

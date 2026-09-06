@@ -84,6 +84,20 @@ class ModelMappingService:
             )
         return results
 
+    def to_friendly_id(self, id_str: str) -> Optional[str]:
+        """Maps any format of model ID (friendly, Bedrock provider ID, catalog ID) to canonical friendly ID."""
+        if not id_str:
+            return None
+        if id_str in self.friendly_to_bedrock:
+            return id_str
+        mapped = self.get_friendly_id(id_str)
+        if mapped:
+            return mapped
+        for c in self.catalog:
+            if c.get("id") == id_str or c.get("providerModelId") == id_str:
+                return c.get("friendly_id")
+        return None
+
     def intersect_candidates(
         self,
         user_selected_friendly_or_bedrock_ids: Optional[List[str]],
@@ -99,14 +113,21 @@ class ModelMappingService:
         # 1. Map connected Bedrock models to friendly IDs
         connected_friendly = set()
         for b_id in connected_bedrock_model_ids:
-            f_id = self.get_friendly_id(b_id)
+            f_id = self.to_friendly_id(b_id)
             if f_id:
                 connected_friendly.add(f_id)
 
         # 2. Intersect with governance allow-list (if defined)
         if allow_listed_friendly_ids is not None and len(allow_listed_friendly_ids) > 0:
-            gov_allowed = set(allow_listed_friendly_ids)
-            candidates = connected_friendly.intersection(gov_allowed)
+            gov_allowed = set()
+            for a_id in allow_listed_friendly_ids:
+                f_id = self.to_friendly_id(a_id)
+                if f_id:
+                    gov_allowed.add(f_id)
+            if gov_allowed:
+                candidates = connected_friendly.intersection(gov_allowed)
+            else:
+                candidates = set(connected_friendly)
         else:
             candidates = set(connected_friendly)
 
@@ -114,19 +135,9 @@ class ModelMappingService:
         if user_selected_friendly_or_bedrock_ids and len(user_selected_friendly_or_bedrock_ids) > 0:
             user_friendly = set()
             for id_str in user_selected_friendly_or_bedrock_ids:
-                # Could be friendly_id or providerModelId or catalog id
-                if id_str in self.friendly_to_bedrock:
-                    user_friendly.add(id_str)
-                else:
-                    mapped = self.get_friendly_id(id_str)
-                    if mapped:
-                        user_friendly.add(mapped)
-                    else:
-                        # Check catalog id
-                        for c in self.catalog:
-                            if c.get("id") == id_str:
-                                user_friendly.add(c["friendly_id"])
-                                break
+                f_id = self.to_friendly_id(id_str)
+                if f_id:
+                    user_friendly.add(f_id)
             
             if user_friendly:
                 candidates = candidates.intersection(user_friendly)

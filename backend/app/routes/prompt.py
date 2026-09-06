@@ -46,7 +46,7 @@ async def profile_prompt(
         max_tokens=req.max_tokens
     )
 
-    # 2. Intersect candidates
+    # 2. Intersect candidates: Connected Bedrock models ∩ Governance allow-list
     conn = await get_connection(x_user_id=user_id)
     connected_bedrock_ids = [m.providerModelId for m in conn.availableModels] if conn.status == "verified" else []
     
@@ -55,17 +55,18 @@ async def profile_prompt(
         connected_bedrock_ids = list(model_mapping_service.bedrock_to_friendly.keys())
 
     candidate_friendly_ids, mapping_warnings = model_mapping_service.intersect_candidates(
-        user_selected_friendly_or_bedrock_ids=req.selectedModelIds,
+        user_selected_friendly_or_bedrock_ids=None,
         connected_bedrock_model_ids=connected_bedrock_ids,
         allow_listed_friendly_ids=gov_result.allowed_models,
     )
 
-    # 3. Route prompt
+    # 3. Route prompt against allowed models
     routing_result = routing_service.route(
         prompt=req.prompt,
         allowed_model_ids=candidate_friendly_ids,
         max_tokens=req.max_tokens,
         enterprise_criticality=req.enterprise_criticality or "standard",
+        top_n=3,
     )
 
     p = routing_result.prompt_profile
@@ -134,9 +135,9 @@ async def route_and_invoke_prompt(
     Main End-to-End pipeline:
     1. Governance check (allow-list, throttling, context window)
     2. Prompt Profiling & Complexity evaluation
-    3. Optimal Model Routing against allowed Bedrock models
-    4. Bedrock InvokeModel dispatch via customer's IAM AssumeRole credentials
-    5. Response Normalization & Audit metadata
+    3. Optimal Model Routing across all Allowed Bedrock Models (recommends top 3)
+    4. Invocation dispatch: Top 1 -> fallback to Top 2 -> fallback to Top 3
+    5. Response Normalization, Benchmark Insight, & Audit metadata
     """
     user_id = x_user_id or "demo-user-uuid"
 
@@ -172,8 +173,14 @@ async def route_and_invoke_prompt(
     if not connected_bedrock_ids:
         connected_bedrock_ids = list(model_mapping_service.bedrock_to_friendly.keys())
 
+    # Identify user's optional selected / preferred model for comparison benchmarking
+    user_preferred_raw = req.preferredModelId or req.preferred_model_id or (req.selectedModelIds[0] if (req.selectedModelIds and len(req.selectedModelIds) > 0) else None)
+    user_selected_friendly = model_mapping_service.to_friendly_id(user_preferred_raw) if user_preferred_raw else None
+
+    # Candidate pool is always the Allowed Models (connected Bedrock models ∩ governance allow-list).
+    # We do NOT restrict routing to the user's manual selection — router always picks optimal model from allowed pool.
     candidate_friendly_ids, mapping_warnings = model_mapping_service.intersect_candidates(
-        user_selected_friendly_or_bedrock_ids=req.selectedModelIds,
+        user_selected_friendly_or_bedrock_ids=None,
         connected_bedrock_model_ids=connected_bedrock_ids,
         allow_listed_friendly_ids=gov_result.allowed_models,
     )
@@ -181,15 +188,16 @@ async def route_and_invoke_prompt(
     if not candidate_friendly_ids:
         raise HTTPException(
             status_code=400,
-            detail="No routable models available that satisfy the Allow-list, user selection, and Bedrock enablement."
+            detail="No routable models available that satisfy the Allow-list policy and Bedrock enablement."
         )
 
-    # Step 3: Run Prompt Profiling & Model Routing Engine
+    # Step 3: Run Prompt Profiling & Model Routing Engine (Top 3 recommendations)
     routing_result = routing_service.route(
         prompt=req.prompt,
         allowed_model_ids=candidate_friendly_ids,
         max_tokens=req.max_tokens,
         enterprise_criticality=req.enterprise_criticality or "standard",
+        top_n=3,
     )
 
     if not routing_result.recommendations:
@@ -198,58 +206,46 @@ async def route_and_invoke_prompt(
             detail="No candidate models passed routing capability and context filters for this prompt."
         )
 
-    # Top-ranked recommendation
-    primary_rec = routing_result.recommendations[0]
-    routed_friendly_id = primary_rec.model_id
-    routed_bedrock_id = model_mapping_service.get_bedrock_id(routed_friendly_id) or "anthropic.claude-3-5-sonnet-20241022-v2:0"
-
-    # Step 4: Dispatch to Bedrock (with fallback to #2 candidate if primary invocation fails)
-    fallback_used = False
-    fallback_from = None
+    # Step 4: Dispatch to Bedrock with cascade fallback: Top 1 -> Top 2 -> Top 3
     invoke_res = None
-    actual_routed_bedrock_id = routed_bedrock_id
-    actual_friendly_id = routed_friendly_id
-    actual_reasons = primary_rec.reasons
+    winning_rec = None
+    actual_routed_bedrock_id = None
+    actual_friendly_id = None
+    actual_reasons = []
+    fallback_chain = []
+    errors = []
 
-    try:
-        invoke_res = bedrock_invoke_service.invoke(
-            role_arn=conn.roleArn if conn.status == "verified" else None,
-            external_id=user_id,
-            bedrock_model_id=routed_bedrock_id,
-            prompt=req.prompt,
-            max_tokens=req.max_tokens or 1500,
-        )
-    except Exception as e:
-        logger.warning(f"Primary routed model {routed_bedrock_id} failed: {e}. Attempting fallback...")
-        if len(routing_result.recommendations) > 1:
-            fallback_rec = routing_result.recommendations[1]
-            fallback_friendly_id = fallback_rec.model_id
-            fallback_bedrock_id = model_mapping_service.get_bedrock_id(fallback_friendly_id)
-            if fallback_bedrock_id:
-                try:
-                    invoke_res = bedrock_invoke_service.invoke(
-                        role_arn=conn.roleArn if conn.status == "verified" else None,
-                        external_id=user_id,
-                        bedrock_model_id=fallback_bedrock_id,
-                        prompt=req.prompt,
-                        max_tokens=req.max_tokens or 1500,
-                    )
-                    fallback_used = True
-                    fallback_from = routed_bedrock_id
-                    actual_routed_bedrock_id = fallback_bedrock_id
-                    actual_friendly_id = fallback_friendly_id
-                    actual_reasons = fallback_rec.reasons
-                except Exception as fb_err:
-                    logger.error(f"Fallback model {fallback_bedrock_id} also failed: {fb_err}")
-                    raise HTTPException(
-                        status_code=502,
-                        detail=f"Both primary model ({routed_bedrock_id}) and fallback model ({fallback_bedrock_id}) failed: {fb_err}"
-                    )
-        if not invoke_res:
-            raise HTTPException(
-                status_code=502,
-                detail=f"Bedrock invocation failed on {routed_bedrock_id}: {str(e)}"
+    for rec in routing_result.recommendations[:3]:
+        target_bedrock_id = model_mapping_service.get_bedrock_id(rec.model_id)
+        if not target_bedrock_id:
+            continue
+        try:
+            logger.info(f"Attempting invocation of rank {rec.rank} model: {rec.model_id} ({target_bedrock_id})")
+            invoke_res = bedrock_invoke_service.invoke(
+                role_arn=conn.roleArn if conn.status == "verified" else None,
+                external_id=user_id,
+                bedrock_model_id=target_bedrock_id,
+                prompt=req.prompt,
+                max_tokens=req.max_tokens or 1500,
             )
+            winning_rec = rec
+            actual_routed_bedrock_id = target_bedrock_id
+            actual_friendly_id = rec.model_id
+            actual_reasons = rec.reasons
+            break
+        except Exception as e:
+            logger.warning(f"Rank {rec.rank} model {target_bedrock_id} failed: {e}. Attempting next fallback...")
+            fallback_chain.append(target_bedrock_id)
+            errors.append(f"Rank {rec.rank} ({rec.model_id}): {str(e)}")
+
+    if not invoke_res or not winning_rec:
+        raise HTTPException(
+            status_code=502,
+            detail=f"All top candidate models failed to invoke: {' | '.join(errors)}"
+        )
+
+    fallback_used = len(fallback_chain) > 0
+    fallback_from = fallback_chain[0] if fallback_chain else None
 
     # Format profile summary
     p = routing_result.prompt_profile
@@ -291,23 +287,56 @@ async def route_and_invoke_prompt(
     # Display name lookup
     display_name = actual_friendly_id.replace("-", " ").title()
     for cat_item in model_mapping_service.catalog:
-        if cat_item.get("friendly_id") == actual_friendly_id or cat_item.get("providerModelId") == actual_routed_bedrock_id:
+        pm_id = cat_item.get("providerModelId", "")
+        if (
+            cat_item.get("friendly_id") == actual_friendly_id
+            or pm_id == actual_routed_bedrock_id
+            or (pm_id and actual_routed_bedrock_id.endswith(pm_id))
+        ):
             display_name = cat_item["name"]
             break
+
+    # Look up user selected model display name
+    user_selected_display_name = None
+    if user_preferred_raw:
+        for cat_item in model_mapping_service.catalog:
+            pm_id = cat_item.get("providerModelId", "")
+            if (
+                cat_item.get("id") == user_preferred_raw
+                or cat_item.get("friendly_id") == user_selected_friendly
+                or pm_id == user_preferred_raw
+                or (pm_id and user_preferred_raw.endswith(pm_id))
+            ):
+                user_selected_display_name = cat_item["name"]
+                break
+        if not user_selected_display_name and user_selected_friendly:
+            user_selected_display_name = user_selected_friendly.replace("-", " ").title()
+
+    comparison_insight = None
+    if user_selected_display_name:
+        if user_selected_friendly == actual_friendly_id:
+            comparison_insight = f"Your chosen model ({user_selected_display_name}) matched the routing engine recommendation as the optimal model for this prompt."
+        else:
+            comparison_insight = f"You selected {user_selected_display_name}, but Prompt Profiler analyzed your prompt (Tier {routing_result.resolved_tier}, Complexity: {p.complexity_score:.2f}) and routed to {display_name} as the optimal model satisfying your governance policies and cost constraints."
 
     return ModelResponse(
         text=invoke_res["text"],
         model_used=actual_routed_bedrock_id,
         model_used_name=display_name,
         routed_model_id=actual_friendly_id,
+        user_selected_model=user_preferred_raw,
+        user_selected_model_name=user_selected_display_name,
+        comparison_insight=comparison_insight,
         routing_reason=actual_reasons,
         tier=routing_result.resolved_tier,
         complexity_score=p.complexity_score,
-        cost_estimate=primary_rec.estimated_cost_usd,
+        cost_estimate=winning_rec.estimated_cost_usd,
         tokens_used=invoke_res.get("tokens_used"),
         latency_ms=invoke_res.get("latency_ms"),
         fallback_used=fallback_used,
         fallback_from=fallback_from,
+        fallback_chain=fallback_chain,
+        fallback_count=len(fallback_chain),
         governance_evaluations=gov_schemas,
         profile_summary=profile_summary,
         recommendations=all_recs,

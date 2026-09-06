@@ -164,6 +164,25 @@ class BedrockInvokeService:
             tokens = int(len(text.split()) * 1.3)
             return text, tokens
 
+    def _resolve_bedrock_model_id(self, bedrock_model_id: str, region: Optional[str] = None) -> str:
+        """
+        Resolves foundation model ID to cross-region inference profile ID when required.
+        AWS Bedrock requires system inference profiles (e.g. 'us.meta.llama3-1-8b-instruct-v1:0')
+        for on-demand invocation of Llama models and other cross-region supported models.
+        """
+        target_region = region or settings.AWS_REGION or "us-east-1"
+        prefix = "us." if target_region.startswith("us-") else ("eu." if target_region.startswith("eu-") else "us.")
+
+        # Already an inference profile (system or custom ARN)
+        if bedrock_model_id.startswith(("us.", "eu.", "ap.", "global.", "arn:aws:")):
+            return bedrock_model_id
+
+        # Meta Llama models require inference profile on Bedrock for on-demand invoke
+        if bedrock_model_id.startswith("meta.llama"):
+            return f"{prefix}{bedrock_model_id}"
+
+        return bedrock_model_id
+
     def invoke(
         self,
         role_arn: Optional[str],
@@ -193,6 +212,9 @@ class BedrockInvokeService:
                 "simulated": True
             }
 
+        actual_model_id = self._resolve_bedrock_model_id(bedrock_model_id, region=region)
+        client = None
+
         try:
             client = self._get_bedrock_runtime_client(
                 role_arn=role_arn,
@@ -201,20 +223,20 @@ class BedrockInvokeService:
             )
 
             body_str = self._format_request_body(
-                bedrock_model_id=bedrock_model_id,
+                bedrock_model_id=actual_model_id,
                 prompt=prompt,
                 max_tokens=max_tokens
             )
 
             res = client.invoke_model(
-                modelId=bedrock_model_id,
+                modelId=actual_model_id,
                 contentType="application/json",
                 accept="application/json",
                 body=body_str
             )
 
             raw_body = res["body"].read()
-            text, tokens = self._parse_response_body(bedrock_model_id, raw_body)
+            text, tokens = self._parse_response_body(actual_model_id, raw_body)
             latency = round((time.time() - start_time) * 1000, 2)
 
             return {
@@ -225,7 +247,39 @@ class BedrockInvokeService:
             }
 
         except (ClientError, BotoCoreError) as e:
-            logger.error(f"Error invoking Bedrock model {bedrock_model_id}: {e}")
+            err_msg = str(e)
+            # If failed because model requires an inference profile, attempt auto-recovery
+            if ("inference profile" in err_msg.lower() or "on-demand throughput" in err_msg.lower()) and client:
+                target_region = region or settings.AWS_REGION or "us-east-1"
+                prefix = "us." if target_region.startswith("us-") else ("eu." if target_region.startswith("eu-") else "us.")
+                if not actual_model_id.startswith(("us.", "eu.", "ap.", "global.")):
+                    retry_model_id = f"{prefix}{actual_model_id}"
+                    logger.info(f"Retrying invocation with cross-region inference profile: {retry_model_id}")
+                    try:
+                        retry_body_str = self._format_request_body(
+                            bedrock_model_id=retry_model_id,
+                            prompt=prompt,
+                            max_tokens=max_tokens
+                        )
+                        retry_res = client.invoke_model(
+                            modelId=retry_model_id,
+                            contentType="application/json",
+                            accept="application/json",
+                            body=retry_body_str
+                        )
+                        raw_body = retry_res["body"].read()
+                        text, tokens = self._parse_response_body(retry_model_id, raw_body)
+                        latency = round((time.time() - start_time) * 1000, 2)
+                        return {
+                            "text": text,
+                            "tokens_used": tokens,
+                            "latency_ms": latency,
+                            "simulated": False
+                        }
+                    except Exception as retry_err:
+                        logger.error(f"Retry with inference profile {retry_model_id} also failed: {retry_err}")
+
+            logger.error(f"Error invoking Bedrock model {bedrock_model_id} (attempted {actual_model_id}): {e}")
             raise e
 
 

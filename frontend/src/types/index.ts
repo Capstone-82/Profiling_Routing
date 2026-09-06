@@ -76,6 +76,7 @@ export interface ModelRecommendation {
 export interface PromptRequest {
   prompt: string;
   selectedModelIds?: string[];
+  preferredModelId?: string;
   max_tokens?: number;
   mode?: 'auto' | 'legacy';
   enterprise_criticality?: string;
@@ -86,12 +87,17 @@ export interface ModelResponse {
   model_used: string;               // Bedrock model ID
   model_used_name: string;          // Display name
   routed_model_id?: string;         // Friendly ID
+  user_selected_model?: string;
+  user_selected_model_name?: string;
+  comparison_insight?: string;
   routing_reason?: string[];
   tier?: string;
   complexity_score?: number;
   cost_estimate?: number;
   fallback_used?: boolean;
   fallback_from?: string;
+  fallback_chain?: string[];
+  fallback_count?: number;
   tokens_used?: number;
   estimated_cost?: number;
   latency_ms?: number;

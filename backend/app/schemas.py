@@ -46,6 +46,8 @@ class GovernanceRuleSchema(BaseModel):
 class PromptRequest(BaseModel):
     prompt: str
     selectedModelIds: Optional[List[str]] = []
+    preferredModelId: Optional[str] = None
+    preferred_model_id: Optional[str] = None
     max_tokens: Optional[int] = None
     mode: Optional[str] = "auto"  # 'auto' | 'legacy'
     enterprise_criticality: Optional[str] = "standard"
@@ -87,6 +89,9 @@ class ModelResponse(BaseModel):
     model_used: str               # Bedrock model ID (e.g. anthropic.claude-3-5-sonnet-20241022-v2:0)
     model_used_name: str          # Display name (e.g. Claude 3.5 Sonnet)
     routed_model_id: str          # Friendly ID (e.g. claude-sonnet-5)
+    user_selected_model: Optional[str] = None
+    user_selected_model_name: Optional[str] = None
+    comparison_insight: Optional[str] = None
     routing_reason: List[str] = []
     tier: str = "T1"
     complexity_score: float = 0.0
@@ -95,6 +100,8 @@ class ModelResponse(BaseModel):
     latency_ms: Optional[float] = None
     fallback_used: bool = False
     fallback_from: Optional[str] = None
+    fallback_chain: Optional[List[str]] = []
+    fallback_count: Optional[int] = 0
     governance_evaluations: List[GovernanceEvaluationSchema] = []
     profile_summary: Optional[ProfileSummarySchema] = None
     recommendations: List[ModelRecommendationSchema] = []

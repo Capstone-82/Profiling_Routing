@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppHeader } from '../layout/AppHeader';
+import { useAuth } from '../../context/AuthContext';
 
 import type { Model, ModelResponse } from '../../types';
 import {
@@ -16,15 +17,15 @@ import {
   ShieldCheck, Cpu, Sparkles, BarChart2, CheckCircle, XCircle, AlertTriangle
 } from 'lucide-react';
 
-// ─── Custom Model Selection Dropdown ──────────────────────────────────────────
-function ModelDropdownSelector({
+// ─── Single Model Selection Dropdown (From Allowed List) ─────────────────────
+function SingleModelSelector({
   models,
-  selected,
+  selectedId,
   onChange,
 }: {
   models: Model[];
-  selected: string[];
-  onChange: (ids: string[]) => void;
+  selectedId: string;
+  onChange: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -39,28 +40,17 @@ function ModelDropdownSelector({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const toggleModel = (id: string) => {
-    if (selected.includes(id)) {
-      if (selected.length > 1) {
-        onChange(selected.filter(s => s !== id));
-      }
-    } else {
-      onChange([...selected, id]);
-    }
-  };
-
-  const selectedModels = models.filter(m => selected.includes(m.id));
+  const selectedModel = models.find(m => m.id === selectedId) || models[0];
 
   return (
     <div ref={dropdownRef} style={{ position: 'relative' }}>
-      {/* Dropdown Trigger Box */}
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
         style={{
           width: '100%',
-          minHeight: '46px',
-          padding: '8px 14px',
+          minHeight: '48px',
+          padding: '10px 14px',
           background: '#FFFFFF',
           border: `1.5px solid ${open ? '#0066FF' : '#D5E3F5'}`,
           borderRadius: '8px',
@@ -73,47 +63,29 @@ function ModelDropdownSelector({
           transition: 'all 0.15s ease',
         }}
         aria-expanded={open}
-        aria-haspopup="listbox"
       >
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
-          {selectedModels.length === 0 ? (
-            <span style={{ fontSize: '13.5px', color: '#8EA3BD' }}>Select models to permit for routing…</span>
-          ) : (
-            selectedModels.map(m => (
-              <span
-                key={m.id}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '3px 10px',
-                  background: '#EBF3FF',
-                  border: '1px solid #BFD7FF',
-                  borderRadius: '999px',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  color: '#0066FF',
-                }}
-              >
-                {m.name}
-                <button
-                  type="button"
-                  onClick={e => {
-                    e.stopPropagation();
-                    toggleModel(m.id);
-                  }}
-                  style={{
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    color: '#0066FF', fontSize: '14px', lineHeight: 1, padding: 0,
-                  }}
-                  aria-label={`Remove ${m.name}`}
-                >
-                  ×
-                </button>
-              </span>
-            ))
-          )}
-        </div>
+        {selectedModel ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '13.5px', fontWeight: 800, color: '#0B1F3A' }}>{selectedModel.name}</span>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#0066FF', background: '#EBF3FF', padding: '1px 7px', borderRadius: '4px' }}>
+                  {selectedModel.provider}
+                </span>
+                {selectedModel.category && (
+                  <span style={{ fontSize: '10.5px', color: '#64748B', background: '#F1F5F9', padding: '1px 6px', borderRadius: '4px' }}>
+                    {selectedModel.category}
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: '11.5px', color: '#5C728D', marginTop: '2px' }}>
+                Context: {selectedModel.contextWindow || '128K tokens'} · <code style={{ fontFamily: 'monospace', color: '#0066FF', fontSize: '10.5px' }}>{selectedModel.providerModelId}</code>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <span style={{ fontSize: '13px', color: '#8EA3BD' }}>Select model from allowed list…</span>
+        )}
 
         <ChevronDown
           size={16}
@@ -126,7 +98,6 @@ function ModelDropdownSelector({
         />
       </button>
 
-      {/* Dropdown Options Popover Panel */}
       {open && (
         <div
           role="listbox"
@@ -145,39 +116,23 @@ function ModelDropdownSelector({
             overflowY: 'auto',
           }}
         >
-          {/* Header Action Bar */}
           <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '10px 14px', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0',
             fontSize: '11px', fontWeight: 700, color: '#5C728D', letterSpacing: '0.04em', textTransform: 'uppercase',
           }}>
-            <span>{models.length} Bedrock Models in Catalog</span>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button
-                type="button"
-                onClick={() => onChange(models.map(m => m.id))}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#0066FF', fontWeight: 700, fontSize: '11px' }}
-              >
-                Select all
-              </button>
-              <button
-                type="button"
-                onClick={() => onChange([models[0]?.id || 'model-claude-3-5-sonnet'])}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8EA3BD', fontWeight: 600, fontSize: '11px' }}
-              >
-                Reset
-              </button>
-            </div>
+            {models.length} Models Permitted in Your Governance Allow-List
           </div>
 
-          {/* Model Items */}
           <div style={{ padding: '6px' }}>
             {models.map(m => {
-              const isSelected = selected.includes(m.id);
+              const isSelected = m.id === selectedId;
               return (
                 <div
                   key={m.id}
-                  onClick={() => toggleModel(m.id)}
+                  onClick={() => {
+                    onChange(m.id);
+                    setOpen(false);
+                  }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -198,18 +153,18 @@ function ModelDropdownSelector({
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <div style={{
-                      width: '18px', height: '18px', borderRadius: '4px',
+                      width: '18px', height: '18px', borderRadius: '50%',
                       border: `1.5px solid ${isSelected ? '#0066FF' : '#CBD5E1'}`,
                       background: isSelected ? '#0066FF' : '#FFFFFF',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       color: '#FFFFFF', flexShrink: 0,
                     }}>
-                      {isSelected && <Check size={12} strokeWidth={3} />}
+                      {isSelected && <Check size={11} strokeWidth={3} />}
                     </div>
 
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#0B1F3A' }}>{m.name}</span>
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#0B1F3A' }}>{m.name}</span>
                         <span style={{ fontSize: '10px', fontWeight: 700, color: '#5C728D', background: '#EEF4FA', padding: '1px 6px', borderRadius: '4px' }}>
                           {m.provider}
                         </span>
@@ -336,6 +291,33 @@ function ResponsePanel({
         {/* Success State */}
         {state === 'success' && response && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', flex: 1 }}>
+
+            {/* Comparison & Routing Decision Insight */}
+            {response.comparison_insight && (
+              <div style={{
+                background: '#EFF6FF',
+                border: '1.5px solid #93C5FD',
+                borderRadius: '8px',
+                padding: '12px 16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', fontWeight: 700, color: '#1E40AF', textTransform: 'uppercase' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Sparkles size={14} style={{ color: '#2563EB' }} /> Model Selection vs Routing Decision
+                  </span>
+                  <span style={{ background: '#DBEAFE', color: '#1E40AF', padding: '2px 8px', borderRadius: '4px' }}>
+                    {response.user_selected_model && response.routed_model_id && (response.user_selected_model.includes(response.routed_model_id) || response.routed_model_id.includes(response.user_selected_model))
+                      ? 'Optimal Match'
+                      : 'Intelligent Route'}
+                  </span>
+                </div>
+                <p style={{ margin: 0, fontSize: '13px', color: '#1E3A8A', lineHeight: 1.5 }}>
+                  {response.comparison_insight}
+                </p>
+              </div>
+            )}
             
             {/* 1. Governance Evaluations Bar */}
             {response.governance_evaluations && response.governance_evaluations.length > 0 && (
@@ -514,11 +496,13 @@ function ResponsePanel({
 
 // ─── Playground Page ──────────────────────────────────────────────────────────
 export function PlaygroundPage() {
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const [models, setModels] = useState<Model[]>([]);
+  const [allModels, setAllModels] = useState<Model[]>([]);
+  const [permittedModels, setPermittedModels] = useState<Model[]>([]);
+  const [chosenModelId, setChosenModelId] = useState<string>('');
   const [loadingModels, setLoadingModels] = useState(true);
   const [connectionVerified, setConnectionVerified] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [prompt, setPrompt] = useState('');
   const [routingMode, setRoutingMode] = useState<'auto' | 'legacy'>('auto');
   const [responseState, setResponseState] = useState<ResponseState>('empty');
@@ -526,19 +510,43 @@ export function PlaygroundPage() {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    getConnection().then(conn => {
+    getConnection(user?.id).then(conn => {
       setConnectionVerified(conn.status === 'verified');
     });
 
-    getAvailableModels().then(ms => {
+    getAvailableModels(user?.id).then(async ms => {
       const list = ms.length > 0 ? ms : MOCK_AVAILABLE_MODELS;
-      setModels(list);
-      setSelectedIds(list.map(m => m.id)); // Default: allow all available Bedrock models
+      setAllModels(list);
+
+      let allowListFiltered = list;
+      try {
+        const headers: Record<string, string> = {};
+        if (user?.id) headers['X-User-ID'] = user.id;
+        const r = await fetch('http://localhost:8000/api/governance/rules', { headers });
+        if (r.ok) {
+          const rules = await r.json();
+          const allowRule = rules.find((x: any) => x.rule_type === 'allow_list');
+          if (allowRule?.config?.allowed_models?.length) {
+            const saved: string[] = allowRule.config.allowed_models;
+            const matched = list.filter(m =>
+              saved.some(s => s === m.id || s === m.providerModelId || m.providerModelId?.includes(s) || m.id?.includes(s))
+            );
+            if (matched.length > 0) {
+              allowListFiltered = matched;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load governance rules:', err);
+      }
+
+      setPermittedModels(allowListFiltered);
+      setChosenModelId(allowListFiltered[0]?.id || list[0]?.id || '');
       setLoadingModels(false);
     });
-  }, []);
+  }, [user?.id]);
 
-  const canSend = prompt.trim().length > 0 && selectedIds.length > 0 && responseState !== 'loading';
+  const canSend = prompt.trim().length > 0 && !!chosenModelId && responseState !== 'loading';
 
   const handleSend = async () => {
     if (!canSend) return;
@@ -548,9 +556,10 @@ export function PlaygroundPage() {
     try {
       const result = await sendPrompt({
         prompt,
-        selectedModelIds: selectedIds,
-        mode: routingMode
-      });
+        preferredModelId: chosenModelId,
+        selectedModelIds: routingMode === 'legacy' ? [chosenModelId] : undefined,
+        mode: routingMode,
+      }, user?.id);
       setResponse(result);
       setResponseState('success');
     } catch (err: unknown) {
@@ -666,29 +675,38 @@ export function PlaygroundPage() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                 <div>
                   <h2 style={{ fontSize: '14px', fontWeight: 800, color: '#0B1F3A' }}>
-                    {routingMode === 'auto' ? 'Permitted Model Allow-List' : 'Target Models'}
+                    {routingMode === 'auto' ? 'Your Preferred Model (From Allowed List)' : 'Target Model'}
                   </h2>
                   <p style={{ fontSize: '12px', color: '#5C728D', marginTop: '2px' }}>
                     {routingMode === 'auto'
-                      ? 'The routing engine will score and pick the optimal model from this permitted list.'
-                      : 'Manually select which model should answer your prompt.'}
+                      ? 'Choose the model you think is best. The routing engine will profile your prompt and select the optimal model from your allow-list.'
+                      : 'Directly dispatch this prompt to your chosen model.'}
                   </p>
                 </div>
-                {selectedIds.length > 0 && (
-                  <span style={{
-                    fontSize: '11px', fontWeight: 700, color: '#0066FF',
-                    background: '#EBF3FF', border: '1px solid #BFD7FF',
-                    padding: '3px 10px', borderRadius: '999px',
-                  }}>
-                    {selectedIds.length} permitted
-                  </span>
+                {permittedModels.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => navigate('/governance')}
+                    style={{
+                      fontSize: '11px', fontWeight: 700, color: '#0066FF',
+                      background: '#EBF3FF', border: '1px solid #BFD7FF',
+                      padding: '3px 10px', borderRadius: '999px', cursor: 'pointer',
+                    }}
+                    title="Click to configure allowed models in Governance"
+                  >
+                    {permittedModels.length} permitted ↗
+                  </button>
                 )}
               </div>
 
               {loadingModels ? (
-                <div className="cs-skeleton" style={{ height: '46px', borderRadius: '8px' }} />
+                <div className="cs-skeleton" style={{ height: '48px', borderRadius: '8px' }} />
               ) : (
-                <ModelDropdownSelector models={models} selected={selectedIds} onChange={setSelectedIds} />
+                <SingleModelSelector
+                  models={permittedModels.length > 0 ? permittedModels : allModels}
+                  selectedId={chosenModelId}
+                  onChange={setChosenModelId}
+                />
               )}
             </div>
 

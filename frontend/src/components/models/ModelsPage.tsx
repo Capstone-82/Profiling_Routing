@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AppHeader } from '../layout/AppHeader';
+import { useAuth } from '../../context/AuthContext';
 
 import type { Model } from '../../types';
 import { getAvailableModels } from '../../services/mock/mockService';
@@ -9,17 +10,18 @@ import {
 } from 'lucide-react';
 
 export function ModelsPage() {
+  const { user } = useAuth();
   const [models, setModels] = useState<Model[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterProvider, setFilterProvider] = useState<string>('all');
 
   useEffect(() => {
-    getAvailableModels().then(ms => {
+    getAvailableModels(user?.id).then(ms => {
       setModels(ms);
       setLoading(false);
     });
-  }, []);
+  }, [user?.id]);
 
   const filtered = models.filter(m => {
     const matchesSearch =

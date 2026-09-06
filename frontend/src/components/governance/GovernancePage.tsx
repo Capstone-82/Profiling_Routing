@@ -1,18 +1,18 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { AppHeader } from '../layout/AppHeader';
 import { useAuth } from '../../context/AuthContext';
 import {
   ShieldCheck, Sliders, Lock, Save, AlertCircle,
-  CheckCircle2, ChevronDown, Check, Send, Sparkles, BarChart2,
-  Cpu, Clock, DollarSign, Activity, CheckCircle, XCircle,
-  AlertTriangle, Info, Settings2, ChevronRight
+  CheckCircle2, Check, Send, Sparkles, BarChart2,
+  Cpu, Clock, Activity, CheckCircle, XCircle,
+  AlertTriangle, Settings2, X, Copy, Zap
 } from 'lucide-react';
 import type { Model, ModelResponse } from '../../types';
 import { getAvailableModels, sendPrompt } from '../../services/mock/mockService';
 
 interface GovernanceRule {
   rule_type: string;
-  mode: 'dry_run' | 'enforce';
+  mode: string;
   config: Record<string, unknown>;
 }
 
@@ -36,266 +36,41 @@ interface ProfileResult {
   warnings: string[];
 }
 
-function ModeToggle({ value, onChange }: { value: 'dry_run' | 'enforce'; onChange: (v: 'dry_run' | 'enforce') => void }) {
-  return (
-    <div style={{ display: 'flex', background: '#F1F5F9', padding: '3px', borderRadius: '999px', gap: '2px' }}>
-      {(['dry_run', 'enforce'] as const).map(m => (
-        <button key={m} type="button" onClick={() => onChange(m)} style={{
-          padding: '3px 10px', borderRadius: '999px', border: 'none', cursor: 'pointer',
-          fontSize: '11px', fontWeight: 700, transition: 'all 0.15s',
-          background: value === m ? (m === 'enforce' ? '#0066FF' : '#E2E8F0') : 'transparent',
-          color: value === m ? (m === 'enforce' ? '#fff' : '#0F172A') : '#64748B',
-        }}>
-          {m === 'dry_run' ? 'Dry-Run' : 'Enforce'}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function ModelDropdown({ models, selected, onChange, placeholder }: {
-  models: Model[]; selected: string[]; onChange: (ids: string[]) => void; placeholder?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
-
-  const toggle = (id: string) => {
-    if (selected.includes(id)) { if (selected.length > 1) onChange(selected.filter(s => s !== id)); }
-    else onChange([...selected, id]);
-  };
-
-  const sel = models.filter(m => selected.includes(m.id));
-
-  return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button type="button" onClick={() => setOpen(v => !v)} style={{
-        width: '100%', minHeight: '42px', padding: '6px 12px',
-        background: '#fff', border: `1.5px solid ${open ? '#0066FF' : '#D5E3F5'}`,
-        borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center',
-        justifyContent: 'space-between', gap: '8px', transition: 'all 0.15s',
-        boxShadow: open ? '0 0 0 3px rgba(0,102,255,0.1)' : undefined,
-      }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', flex: 1 }}>
-          {sel.length === 0
-            ? <span style={{ fontSize: '12.5px', color: '#8EA3BD' }}>{placeholder || 'Select models…'}</span>
-            : sel.map(m => (
-              <span key={m.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', background: '#EBF3FF', border: '1px solid #BFD7FF', borderRadius: '999px', fontSize: '11px', fontWeight: 700, color: '#0066FF' }}>
-                {m.name}
-                <button type="button" onClick={e => { e.stopPropagation(); toggle(m.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#0066FF', fontSize: '14px', lineHeight: 1, padding: 0 }}>×</button>
-              </span>
-            ))}
-        </div>
-        <ChevronDown size={14} style={{ color: '#5C728D', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }} />
-      </button>
-
-      {open && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 50, background: '#fff', border: '1.5px solid #D5E3F5', borderRadius: '10px', boxShadow: '0 8px 24px rgba(11,31,58,0.12)', maxHeight: '280px', overflowY: 'auto' }}>
-          <div style={{ padding: '8px 12px', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 700, color: '#5C728D', textTransform: 'uppercase' }}>
-            <span>{models.length} model{models.length !== 1 ? 's' : ''} available</span>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button type="button" onClick={() => onChange(models.map(m => m.id))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#0066FF', fontWeight: 700, fontSize: '11px' }}>All</button>
-              <button type="button" onClick={() => { if (models[0]) onChange([models[0].id]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8EA3BD', fontSize: '11px' }}>Reset</button>
-            </div>
-          </div>
-          <div style={{ padding: '4px' }}>
-            {models.map(m => {
-              const isSel = selected.includes(m.id);
-              return (
-                <div key={m.id} onClick={() => toggle(m.id)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', borderRadius: '6px', background: isSel ? '#EBF3FF' : 'transparent', cursor: 'pointer', marginBottom: '2px' }}
-                  onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = '#F8FAFC'; }}
-                  onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = 'transparent'; }}>
-                  <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: `1.5px solid ${isSel ? '#0066FF' : '#CBD5E1'}`, background: isSel ? '#0066FF' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    {isSel && <Check size={10} strokeWidth={3} color="#fff" />}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#0B1F3A' }}>{m.name}</span>
-                    <span style={{ fontSize: '10px', color: '#5C728D', marginLeft: '6px' }}>{m.provider}</span>
-                  </div>
-                  <code style={{ fontSize: '10px', color: '#0066FF', fontFamily: 'monospace' }}>{m.providerModelId?.split('.').slice(-1)[0]}</code>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+const SAMPLE_PROMPTS = [
+  {
+    title: 'Full-Stack Roadmap',
+    category: 'Engineering',
+    prompt: "I'm planning a 3-month roadmap to learn full-stack web development while studying in college. I already know basic Python and HTML. Create a week-by-week plan that balances frontend, backend, databases, and one portfolio project. Limit the study time to 2 hours per day on weekdays and 4 hours on weekends. Include milestones, recommended topics, and how to measure progress each week."
+  },
+  {
+    title: 'Financial Sentiment',
+    category: 'Finance & Risk',
+    prompt: "Analyze the Q3 earnings transcript of a multinational semiconductor company. Identify key revenue drivers, supply chain risks, capital expenditure shifts, and management sentiment regarding forward margin guidance. Summarize findings in executive bullet points with risk ratings."
+  },
+  {
+    title: 'Client Meeting Reschedule',
+    category: 'Productivity',
+    prompt: "Draft a concise, professional email to an enterprise client explaining that our architectural review meeting scheduled for tomorrow needs to be pushed back by 48 hours due to unforeseen infrastructure maintenance. Offer two alternative 45-minute slots on Thursday and Friday afternoon."
+  },
+  {
+    title: 'Database Sharding Design',
+    category: 'System Design',
+    prompt: "Design a horizontally scalable database architecture for a multi-tenant SaaS application handling 50,000 write operations per second with 99.99% availability. Detail partition key strategies, consistent hashing, cross-shard query mitigation, read-replica replication lag handling, and backup failover procedures."
+  }
+];
 
 function DimBar({ label, value }: { label: string; value: number }) {
-  const pct = Math.round(value * 100);
-  const color = pct <= 25 ? '#10B981' : pct <= 50 ? '#3B82F6' : pct <= 75 ? '#F59E0B' : '#EF4444';
+  const pct = Math.min(100, Math.max(0, Math.round(value * 100)));
+  const color = pct <= 30 ? '#10B981' : pct <= 60 ? '#3B82F6' : pct <= 80 ? '#F59E0B' : '#EF4444';
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px', color: '#475569' }}>
-        <span>{label}</span><span style={{ fontWeight: 700, color }}>{value.toFixed(2)}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#475569' }}>
+        <span style={{ fontWeight: 600 }}>{label}</span>
+        <span style={{ fontWeight: 700, color }}>{value.toFixed(2)}</span>
       </div>
-      <div style={{ width: '100%', height: '4px', background: '#E2E8F0', borderRadius: '999px', overflow: 'hidden' }}>
-        <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: '999px' }} />
+      <div style={{ width: '100%', height: '5px', background: '#E2E8F0', borderRadius: '999px', overflow: 'hidden' }}>
+        <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: '999px', transition: 'width 0.4s ease' }} />
       </div>
-    </div>
-  );
-}
-
-function RulesPanel({
-  user, allowedModels, setAllowedModels, allowListMode, setAllowListMode, allModels,
-  contextMode, setContextMode, maxInputTokens, setMaxInputTokens, maxTotalTokens, setMaxTotalTokens,
-  throttleMode, setThrottleMode, rateLimitRpm, setRateLimitRpm, dailyTokenQuota, setDailyTokenQuota,
-}: {
-  user: { id: string } | null;
-  allowedModels: string[]; setAllowedModels: (v: string[]) => void;
-  allowListMode: 'dry_run' | 'enforce'; setAllowListMode: (v: 'dry_run' | 'enforce') => void;
-  allModels: Model[];
-  contextMode: 'dry_run' | 'enforce'; setContextMode: (v: 'dry_run' | 'enforce') => void;
-  maxInputTokens: number; setMaxInputTokens: (v: number) => void;
-  maxTotalTokens: number; setMaxTotalTokens: (v: number) => void;
-  throttleMode: 'dry_run' | 'enforce'; setThrottleMode: (v: 'dry_run' | 'enforce') => void;
-  rateLimitRpm: number; setRateLimitRpm: (v: number) => void;
-  dailyTokenQuota: number; setDailyTokenQuota: (v: number) => void;
-}) {
-  const [saving, setSaving] = useState(false);
-  const [savedOk, setSavedOk] = useState(false);
-  const [err, setErr] = useState('');
-  const [openSection, setOpenSection] = useState<string | null>('allow_list');
-
-  const handleSave = async () => {
-    setSaving(true); setSavedOk(false); setErr('');
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (user?.id) headers['X-User-ID'] = user.id;
-    try {
-      await Promise.all([
-        fetch('http://localhost:8000/api/governance/rules', { method: 'POST', headers, body: JSON.stringify({ rule_type: 'allow_list', mode: allowListMode, config: { allowed_models: allowedModels } }) }),
-        fetch('http://localhost:8000/api/governance/rules', { method: 'POST', headers, body: JSON.stringify({ rule_type: 'context_window', mode: contextMode, config: { max_input_tokens: maxInputTokens, max_total_tokens: maxTotalTokens } }) }),
-        fetch('http://localhost:8000/api/governance/rules', { method: 'POST', headers, body: JSON.stringify({ rule_type: 'throttle', mode: throttleMode, config: { rate_limit_rpm: rateLimitRpm, quota_per_day_tokens: dailyTokenQuota } }) }),
-      ]);
-      setSavedOk(true);
-      setTimeout(() => setSavedOk(false), 3000);
-    } catch (e) { setErr(e instanceof Error ? e.message : 'Save failed'); }
-    finally { setSaving(false); }
-  };
-
-  const sections = [
-    { id: 'allow_list', icon: <Lock size={14} />, label: 'Model Allow-List', badge: `${allowedModels.length} permitted`, mode: allowListMode },
-    { id: 'context_window', icon: <Sliders size={14} />, label: 'Context Window', badge: `${(maxInputTokens / 1000).toFixed(0)}K max`, mode: contextMode },
-    { id: 'throttle', icon: <ShieldCheck size={14} />, label: 'Rate & Throttle', badge: `${rateLimitRpm} RPM`, mode: throttleMode },
-  ];
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Settings2 size={16} style={{ color: '#0066FF' }} />
-          <span style={{ fontSize: '14px', fontWeight: 800, color: '#0B1F3A' }}>Governance Rules</span>
-        </div>
-        <button onClick={handleSave} disabled={saving} className="cs-btn cs-btn-primary" style={{ height: '34px', fontSize: '12px', padding: '0 14px', gap: '6px' }}>
-          {saving ? <span className="cs-spinner" style={{ width: '13px', height: '13px' }} /> : <Save size={13} />}
-          Save
-        </button>
-      </div>
-
-      {savedOk && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#DCFCE7', border: '1px solid #86EFAC', borderRadius: '6px', fontSize: '12px', color: '#15803D', fontWeight: 600 }}>
-          <CheckCircle2 size={14} /> Policies saved.
-        </div>
-      )}
-      {err && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#991B1B' }}>
-          <AlertCircle size={14} /> {err}
-        </div>
-      )}
-
-      {sections.map(sec => (
-        <div key={sec.id} className="cs-card" style={{ padding: 0, overflow: 'hidden' }}>
-          <button type="button" onClick={() => setOpenSection(p => p === sec.id ? null : sec.id)} style={{
-            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '11px 14px', background: 'none', border: 'none', cursor: 'pointer', gap: '6px',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-              <span style={{ color: '#0066FF' }}>{sec.icon}</span>
-              <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#0B1F3A' }}>{sec.label}</span>
-              <span style={{ fontSize: '10px', fontWeight: 700, padding: '1px 6px', borderRadius: '999px', background: '#EBF3FF', color: '#0066FF' }}>{sec.badge}</span>
-              <span style={{ fontSize: '10px', fontWeight: 700, padding: '1px 6px', borderRadius: '999px', background: sec.mode === 'enforce' ? '#0066FF' : '#E2E8F0', color: sec.mode === 'enforce' ? '#fff' : '#475569' }}>
-                {sec.mode === 'enforce' ? 'Enforce' : 'Dry-Run'}
-              </span>
-            </div>
-            <ChevronRight size={13} style={{ color: '#8EA3BD', transform: openSection === sec.id ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }} />
-          </button>
-
-          {openSection === sec.id && (
-            <div style={{ padding: '0 14px 14px', borderTop: '1px solid #EEF4FA' }}>
-              {sec.id === 'allow_list' && (
-                <div style={{ paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '11px', color: '#5C728D' }}>Models this org can route to</span>
-                    <ModeToggle value={allowListMode} onChange={setAllowListMode} />
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
-                    {allModels.map(m => {
-                      const isSel = allowedModels.includes(m.id);
-                      return (
-                        <div key={m.id} onClick={() => {
-                          if (isSel) { if (allowedModels.length > 1) setAllowedModels(allowedModels.filter(x => x !== m.id)); }
-                          else setAllowedModels([...allowedModels, m.id]);
-                        }} style={{ padding: '7px 9px', borderRadius: '6px', border: `1.5px solid ${isSel ? '#0066FF' : '#E2E8F0'}`, background: isSel ? '#F0F7FF' : '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <div>
-                            <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#0B1F3A' }}>{m.name}</div>
-                            <div style={{ fontSize: '10px', color: '#64748B' }}>{m.provider}</div>
-                          </div>
-                          <span style={{ fontSize: '9px', fontWeight: 800, padding: '1px 5px', borderRadius: '999px', background: isSel ? '#0066FF' : '#CBD5E1', color: '#fff' }}>
-                            {isSel ? '✓' : '✗'}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {sec.id === 'context_window' && (
-                <div style={{ paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <ModeToggle value={contextMode} onChange={setContextMode} />
-                  </div>
-                  {[
-                    { label: 'Max Input Tokens', value: maxInputTokens, onChange: setMaxInputTokens, hint: 'Default: 200,000' },
-                    { label: 'Max Total Tokens', value: maxTotalTokens, onChange: setMaxTotalTokens, hint: 'Default: 250,000' },
-                  ].map(f => (
-                    <div key={f.label}>
-                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>{f.label}</label>
-                      <input type="number" value={f.value} onChange={e => f.onChange(Number(e.target.value))} className="cs-input" style={{ height: '36px', fontSize: '13px' }} />
-                      <span style={{ fontSize: '10.5px', color: '#94A3B8', marginTop: '2px', display: 'block' }}>{f.hint}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {sec.id === 'throttle' && (
-                <div style={{ paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <ModeToggle value={throttleMode} onChange={setThrottleMode} />
-                  </div>
-                  {[
-                    { label: 'Rate Limit (RPM)', value: rateLimitRpm, onChange: setRateLimitRpm, hint: 'Default: 60 RPM' },
-                    { label: 'Daily Token Quota', value: dailyTokenQuota, onChange: setDailyTokenQuota, hint: 'Default: 5,000,000/day' },
-                  ].map(f => (
-                    <div key={f.label}>
-                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>{f.label}</label>
-                      <input type="number" value={f.value} onChange={e => f.onChange(Number(e.target.value))} className="cs-input" style={{ height: '36px', fontSize: '13px' }} />
-                      <span style={{ fontSize: '10.5px', color: '#94A3B8', marginTop: '2px', display: 'block' }}>{f.hint}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      ))}
     </div>
   );
 }
@@ -303,58 +78,53 @@ function RulesPanel({
 export function GovernancePage() {
   const { user } = useAuth();
 
+  // Governance state
   const [allModels, setAllModels] = useState<Model[]>([]);
   const [allowedModels, setAllowedModels] = useState<string[]>([]);
-  const [allowListMode, setAllowListMode] = useState<'dry_run' | 'enforce'>('enforce');
-  const [contextMode, setContextMode] = useState<'dry_run' | 'enforce'>('enforce');
   const [maxInputTokens, setMaxInputTokens] = useState(200000);
   const [maxTotalTokens, setMaxTotalTokens] = useState(250000);
-  const [throttleMode, setThrottleMode] = useState<'dry_run' | 'enforce'>('dry_run');
   const [rateLimitRpm, setRateLimitRpm] = useState(60);
   const [dailyTokenQuota, setDailyTokenQuota] = useState(5000000);
 
-  const [prompt, setPrompt] = useState('');
-  const [selectedModelIds, setSelectedModelIds] = useState<string[]>([]);
+  // Guardrails modal/drawer toggle
+  const [guardrailsOpen, setGuardrailsOpen] = useState(false);
+  const [savingRules, setSavingRules] = useState(false);
+  const [rulesSaveOk, setRulesSaveOk] = useState(false);
+  const [rulesSaveErr, setRulesSaveErr] = useState('');
 
+  // Interactive prompt state
+  const [prompt, setPrompt] = useState('');
+  const [userPreferredModelId, setUserPreferredModelId] = useState<string>('');
   const [profiling, setProfiling] = useState(false);
   const [profileResult, setProfileResult] = useState<ProfileResult | null>(null);
-  const [profileOpen, setProfileOpen] = useState(false);
   const [profileErr, setProfileErr] = useState('');
 
   const [routing, setRouting] = useState(false);
   const [response, setResponse] = useState<ModelResponse | null>(null);
   const [responseErr, setResponseErr] = useState('');
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    // Load models first, then fetch rules and reconcile IDs
     getAvailableModels().then(ms => {
       setAllModels(ms);
       const allIds = ms.map(m => m.id);
       setAllowedModels(allIds);
-      setSelectedModelIds(allIds);
 
       if (user?.id) {
         fetch('http://localhost:8000/api/governance/rules', { headers: { 'X-User-ID': user.id } })
           .then(r => r.ok ? r.json() : [])
           .then((rules: GovernanceRule[]) => {
             rules.forEach(r => {
-              if (r.rule_type === 'allow_list') {
-                setAllowListMode(r.mode);
-                if (r.config.allowed_models) {
-                  const savedIds = r.config.allowed_models as string[];
-                  // Reconcile: keep only IDs that exist in loaded models (match by id or providerModelId)
-                  const matched = ms
-                    .filter(m => savedIds.some(sid => sid === m.id || sid === m.providerModelId || m.providerModelId?.includes(sid) || m.id?.includes(sid)))
-                    .map(m => m.id);
-                  setAllowedModels(matched.length > 0 ? matched : allIds);
-                  setSelectedModelIds(matched.length > 0 ? matched : allIds);
-                }
+              if (r.rule_type === 'allow_list' && r.config.allowed_models) {
+                const savedIds = r.config.allowed_models as string[];
+                const matched = ms
+                  .filter(m => savedIds.some(sid => sid === m.id || sid === m.providerModelId || m.providerModelId?.includes(sid) || m.id?.includes(sid)))
+                  .map(m => m.id);
+                if (matched.length > 0) setAllowedModels(matched);
               } else if (r.rule_type === 'context_window') {
-                setContextMode(r.mode);
                 if (r.config.max_input_tokens) setMaxInputTokens(r.config.max_input_tokens as number);
                 if (r.config.max_total_tokens) setMaxTotalTokens(r.config.max_total_tokens as number);
               } else if (r.rule_type === 'throttle') {
-                setThrottleMode(r.mode);
                 if (r.config.rate_limit_rpm) setRateLimitRpm(r.config.rate_limit_rpm as number);
                 if (r.config.quota_per_day_tokens) setDailyTokenQuota(r.config.quota_per_day_tokens as number);
               }
@@ -366,319 +136,1004 @@ export function GovernancePage() {
   }, [user?.id]);
 
   const permittedModels = allModels.filter(m => allowedModels.includes(m.id));
-  const effectiveModels = permittedModels.filter(m => selectedModelIds.includes(m.id));
 
-  const handleProfile = async () => {
+  const handleSaveGuardrails = async () => {
+    setSavingRules(true); setRulesSaveOk(false); setRulesSaveErr('');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (user?.id) headers['X-User-ID'] = user.id;
+    try {
+      await Promise.all([
+        fetch('http://localhost:8000/api/governance/rules', {
+          method: 'POST', headers,
+          body: JSON.stringify({ rule_type: 'allow_list', mode: 'enforce', config: { allowed_models: allowedModels } })
+        }),
+        fetch('http://localhost:8000/api/governance/rules', {
+          method: 'POST', headers,
+          body: JSON.stringify({ rule_type: 'context_window', mode: 'enforce', config: { max_input_tokens: maxInputTokens, max_total_tokens: maxTotalTokens } })
+        }),
+        fetch('http://localhost:8000/api/governance/rules', {
+          method: 'POST', headers,
+          body: JSON.stringify({ rule_type: 'throttle', mode: 'enforce', config: { rate_limit_rpm: rateLimitRpm, quota_per_day_tokens: dailyTokenQuota } })
+        }),
+      ]);
+      setRulesSaveOk(true);
+      setTimeout(() => {
+        setRulesSaveOk(false);
+        setGuardrailsOpen(false);
+      }, 1500);
+    } catch (e) {
+      setRulesSaveErr(e instanceof Error ? e.message : 'Failed to save guardrails');
+    } finally {
+      setSavingRules(false);
+    }
+  };
+
+  const handleProfileOnly = async () => {
     if (!prompt.trim()) return;
-    setProfiling(true); setProfileResult(null); setProfileErr(''); setResponse(null); setResponseErr('');
+    setProfiling(true); setProfileResult(null); setProfileErr(''); setResponseErr('');
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (user?.id) headers['X-User-ID'] = user.id;
       const res = await fetch('http://localhost:8000/api/prompt/profile', {
         method: 'POST', headers,
-        body: JSON.stringify({ prompt, selectedModelIds: effectiveModels.map(m => m.id) }),
+        body: JSON.stringify({
+          prompt,
+          preferredModelId: userPreferredModelId || undefined
+        }),
       });
-      if (!res.ok) throw new Error(`Profile failed (${res.status})`);
-      setProfileResult(await res.json());
-      setProfileOpen(true);
+      if (!res.ok) throw new Error(`Profiling failed with status ${res.status}`);
+      const data: ProfileResult = await res.json();
+      setProfileResult(data);
     } catch (e) {
       setProfileErr(e instanceof Error ? e.message : 'Profiling failed');
-    } finally { setProfiling(false); }
+    } finally {
+      setProfiling(false);
+    }
   };
 
-  const handleRoute = async () => {
+  const handleRouteAndInvoke = async () => {
     if (!prompt.trim()) return;
     setRouting(true); setResponse(null); setResponseErr('');
     try {
-      const result = await sendPrompt({ prompt, selectedModelIds: effectiveModels.map(m => m.id), mode: 'auto' }, user?.id);
+      const result = await sendPrompt({
+        prompt,
+        preferredModelId: userPreferredModelId || undefined,
+        mode: 'auto'
+      }, user?.id);
+
       setResponse(result);
+
+      if (result.profile_summary && result.recommendations) {
+        setProfileResult({
+          profile: result.profile_summary,
+          resolved_tier: result.tier || result.profile_summary.resolved_tier,
+          recommendations: result.recommendations,
+          governance_evaluations: result.governance_evaluations || [],
+          warnings: result.warnings || [],
+        });
+      }
     } catch (e) {
-      setResponseErr(e instanceof Error ? e.message : 'Routing failed');
-    } finally { setRouting(false); }
+      setResponseErr(e instanceof Error ? e.message : 'Routing and invocation failed');
+    } finally {
+      setRouting(false);
+    }
   };
 
-  const canProfile = prompt.trim().length > 0 && effectiveModels.length > 0 && !profiling && !routing;
-  const canRoute = prompt.trim().length > 0 && effectiveModels.length > 0 && !routing && !profiling;
+  const handleCopyText = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const activeRecommendations = response?.recommendations || profileResult?.recommendations || [];
 
   return (
-    <div style={{ background: 'var(--cs-gray-bg)' }}>
+    <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', flexDirection: 'column' }}>
       <AppHeader activePath="/governance" />
-      <main style={{ maxWidth: '1400px', width: '100%', margin: '0 auto', padding: '32px 24px 48px' }}>
 
-        <div style={{ marginBottom: '24px' }}>
-          <h1 className="cs-heading" style={{ fontSize: '26px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: 0 }}>
-            <ShieldCheck size={24} style={{ color: '#0066FF' }} /> Governance Policy Playground
-          </h1>
-          <p style={{ fontSize: '13px', color: '#5C728D', marginTop: '6px' }}>
-            Set governance rules, test prompts against them, and route through permitted models only.
-          </p>
+      <main style={{ maxWidth: '1440px', width: '100%', margin: '0 auto', padding: '28px 24px 60px', flex: 1 }}>
+
+        {/* ── Top Header & Policy Control Bar ── */}
+        <div style={{
+          background: '#FFFFFF',
+          border: '1.5px solid #E2E8F0',
+          borderRadius: '16px',
+          padding: '24px 28px',
+          boxShadow: '0 4px 20px -2px rgba(15, 23, 42, 0.04)',
+          marginBottom: '24px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+            <div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '999px', fontSize: '11.5px', fontWeight: 700, color: '#1D4ED8', marginBottom: '8px' }}>
+                <ShieldCheck size={13} /> AI Governance & Intelligent Routing Engine
+              </div>
+              <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.02em', margin: 0 }}>
+                Enterprise AI Policy & Model Router
+              </h1>
+              <p style={{ fontSize: '13.5px', color: '#64748B', marginTop: '6px', maxWidth: '820px', lineHeight: 1.5 }}>
+                Define permitted foundation models and governance guardrails. Prompts are analyzed by semantic profilers, filtered by governance limits, ranked across Top 3 models from your allowed list, and invoked with automated 3-tier cascade fallback (Rank 1 → Rank 2 → Rank 3).
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setGuardrailsOpen(true)}
+              className="cs-btn"
+              style={{
+                height: '42px',
+                padding: '0 18px',
+                background: '#0F172A',
+                color: '#FFFFFF',
+                borderRadius: '10px',
+                fontSize: '13px',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(15, 23, 42, 0.15)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <Settings2 size={15} /> Configure Guardrails ({permittedModels.length} Models)
+            </button>
+          </div>
+
+          {/* Active Policies Indicator Pill Row */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            flexWrap: 'wrap',
+            paddingTop: '14px',
+            borderTop: '1px solid #F1F5F9'
+          }}>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Active Guardrails:
+            </span>
+
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: '#F8FAFC', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '12px', fontWeight: 600, color: '#0F172A' }}>
+              <Lock size={12} style={{ color: '#0284C7' }} />
+              <strong>{permittedModels.length}</strong> of {allModels.length} Bedrock Models Permitted
+            </div>
+
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: '#F8FAFC', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '12px', fontWeight: 600, color: '#0F172A' }}>
+              <Sliders size={12} style={{ color: '#0284C7' }} />
+              Max Input: <strong>{(maxInputTokens / 1000).toFixed(0)}K tokens</strong>
+            </div>
+
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: '#F8FAFC', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '12px', fontWeight: 600, color: '#0F172A' }}>
+              <Activity size={12} style={{ color: '#0284C7' }} />
+              Rate Limit: <strong>{rateLimitRpm} RPM</strong>
+            </div>
+
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '8px', fontSize: '12px', fontWeight: 700, color: '#065F46', marginLeft: 'auto' }}>
+              <CheckCircle2 size={12} /> Cascade Fallback: Top 1 → Top 2 → Top 3 Active
+            </div>
+          </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr 1fr', gap: '20px', alignItems: 'start' }}>
+        {/* ── Main Two-Column Layout ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.15fr', gap: '24px', alignItems: 'start' }}>
 
-          {/* LEFT: Rules */}
-          <RulesPanel
-            user={user}
-            allowedModels={allowedModels} setAllowedModels={setAllowedModels}
-            allowListMode={allowListMode} setAllowListMode={setAllowListMode}
-            allModels={allModels}
-            contextMode={contextMode} setContextMode={setContextMode}
-            maxInputTokens={maxInputTokens} setMaxInputTokens={setMaxInputTokens}
-            maxTotalTokens={maxTotalTokens} setMaxTotalTokens={setMaxTotalTokens}
-            throttleMode={throttleMode} setThrottleMode={setThrottleMode}
-            rateLimitRpm={rateLimitRpm} setRateLimitRpm={setRateLimitRpm}
-            dailyTokenQuota={dailyTokenQuota} setDailyTokenQuota={setDailyTokenQuota}
-          />
+          {/* ════════ LEFT COLUMN: Prompt Input & Profiler Breakdown ════════ */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-          {/* CENTER: Prompt + Profile */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-
-            <div className="cs-card" style={{ padding: '20px' }}>
-              <h2 style={{ fontSize: '14px', fontWeight: 800, color: '#0B1F3A', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Sparkles size={14} style={{ color: '#0066FF' }} /> Prompt
-              </h2>
-
-              <div style={{ marginBottom: '10px' }}>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '5px' }}>
-                  Route against ({permittedModels.length} permitted)
-                </label>
-                {permittedModels.length === 0 ? (
-                  <div className="cs-skeleton" style={{ height: '42px', borderRadius: '8px' }} />
-                ) : (
-                  <ModelDropdown
-                    models={permittedModels}
-                    selected={selectedModelIds}
-                    onChange={setSelectedModelIds}
-                    placeholder="Select from permitted models…"
-                  />
-                )}
-                {effectiveModels.length === 0 && selectedModelIds.length > 0 && (
-                  <p style={{ fontSize: '10.5px', color: '#DC2626', marginTop: '4px' }}>
-                    No permitted models selected — update the allow-list or selection.
-                  </p>
-                )}
+            {/* Prompt Card */}
+            <div style={{
+              background: '#FFFFFF',
+              border: '1.5px solid #E2E8F0',
+              borderRadius: '16px',
+              padding: '24px',
+              boxShadow: '0 2px 12px rgba(15, 23, 42, 0.03)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                  <Sparkles size={16} style={{ color: '#0066FF' }} /> Enter Prompt to Profile & Route
+                </h2>
+                <span style={{ fontSize: '11.5px', color: '#94A3B8', fontWeight: 500 }}>
+                  {prompt.length} chars
+                </span>
               </div>
 
+              {/* Sample Prompts */}
+              <div style={{ marginBottom: '14px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px' }}>
+                  Quick Sample Prompts:
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {SAMPLE_PROMPTS.map(sp => (
+                    <button
+                      key={sp.title}
+                      type="button"
+                      onClick={() => setPrompt(sp.prompt)}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '8px',
+                        background: prompt === sp.prompt ? '#EFF6FF' : '#F1F5F9',
+                        border: `1px solid ${prompt === sp.prompt ? '#3B82F6' : '#E2E8F0'}`,
+                        color: prompt === sp.prompt ? '#1D4ED8' : '#334155',
+                        fontSize: '11.5px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.1s'
+                      }}
+                    >
+                      {sp.title}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Textarea */}
               <textarea
                 value={prompt}
                 onChange={e => setPrompt(e.target.value)}
-                placeholder="Enter your prompt to test against governance rules and route through allowed models…"
-                className="cs-input"
-                style={{ width: '100%', minHeight: '148px', resize: 'vertical', fontFamily: 'inherit', fontSize: '13.5px', lineHeight: 1.6, padding: '12px', boxSizing: 'border-box' }}
+                placeholder="Enter prompt to evaluate against governance rules and automatically route to the optimal model from your allowed list..."
+                style={{
+                  width: '100%',
+                  minHeight: '160px',
+                  borderRadius: '10px',
+                  border: '1.5px solid #CBD5E1',
+                  padding: '14px',
+                  fontSize: '13.5px',
+                  lineHeight: 1.6,
+                  color: '#0F172A',
+                  fontFamily: 'inherit',
+                  resize: 'vertical',
+                  boxSizing: 'border-box',
+                  outline: 'none',
+                  transition: 'border-color 0.15s',
+                  background: '#FDFEFE'
+                }}
+                onFocus={e => e.currentTarget.style.borderColor = '#0066FF'}
+                onBlur={e => e.currentTarget.style.borderColor = '#CBD5E1'}
               />
 
-              <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
-                <button onClick={handleProfile} disabled={!canProfile} className="cs-btn cs-btn-outline"
-                  style={{ flex: 1, height: '40px', fontSize: '13px', gap: '6px', justifyContent: 'center' }}>
-                  {profiling
-                    ? <><span className="cs-spinner" style={{ width: '13px', height: '13px' }} /> Profiling…</>
-                    : <><BarChart2 size={14} /> Profile Prompt</>}
+              {/* Optional User Preference for Benchmarking */}
+              <div style={{ marginTop: '16px', padding: '12px 14px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>
+                    Compare Against User Choice (Optional Benchmark)
+                  </label>
+                  {userPreferredModelId && (
+                    <button
+                      type="button"
+                      onClick={() => setUserPreferredModelId('')}
+                      style={{ background: 'none', border: 'none', fontSize: '11px', color: '#64748B', cursor: 'pointer' }}
+                    >
+                      Clear preference
+                    </button>
+                  )}
+                </div>
+                <select
+                  value={userPreferredModelId}
+                  onChange={e => setUserPreferredModelId(e.target.value)}
+                  style={{
+                    width: '100%',
+                    height: '38px',
+                    borderRadius: '8px',
+                    border: '1px solid #CBD5E1',
+                    background: '#FFFFFF',
+                    padding: '0 10px',
+                    fontSize: '12.5px',
+                    color: '#0F172A',
+                    outline: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="">No preference — router selects purely based on prompt profile & governance</option>
+                  {permittedModels.map(m => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} ({m.provider})
+                    </option>
+                  ))}
+                </select>
+                <span style={{ fontSize: '11px', color: '#64748B', display: 'block', marginTop: '5px' }}>
+                  If selected, the router will evaluate all allowed models, recommend the top 3, and benchmark against your choice.
+                </span>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '12px', marginTop: '18px' }}>
+                <button
+                  type="button"
+                  onClick={handleProfileOnly}
+                  disabled={!prompt.trim() || profiling || routing}
+                  className="cs-btn cs-btn-outline"
+                  style={{
+                    flex: 1,
+                    height: '44px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    borderRadius: '10px',
+                    gap: '8px',
+                    justifyContent: 'center',
+                    cursor: !prompt.trim() || profiling || routing ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {profiling ? (
+                    <><span className="cs-spinner" style={{ width: '14px', height: '14px' }} /> Profiling...</>
+                  ) : (
+                    <><BarChart2 size={16} /> Profile Prompt</>
+                  )}
                 </button>
-                <button onClick={handleRoute} disabled={!canRoute} className="cs-btn cs-btn-primary"
-                  style={{ flex: 1, height: '40px', fontSize: '13px', gap: '6px', justifyContent: 'center' }}>
-                  {routing
-                    ? <><span className="cs-spinner" style={{ width: '13px', height: '13px' }} /> Routing…</>
-                    : <><Send size={14} /> Route & Invoke</>}
+
+                <button
+                  type="button"
+                  onClick={handleRouteAndInvoke}
+                  disabled={!prompt.trim() || routing || profiling}
+                  className="cs-btn cs-btn-primary"
+                  style={{
+                    flex: 1.2,
+                    height: '44px',
+                    fontSize: '13.5px',
+                    fontWeight: 800,
+                    borderRadius: '10px',
+                    gap: '8px',
+                    justifyContent: 'center',
+                    background: 'linear-gradient(135deg, #0066FF 0%, #0052CC 100%)',
+                    cursor: !prompt.trim() || routing || profiling ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {routing ? (
+                    <><span className="cs-spinner" style={{ width: '14px', height: '14px' }} /> Routing & Invoking...</>
+                  ) : (
+                    <><Send size={15} /> Route & Invoke</>
+                  )}
                 </button>
               </div>
+
+              {profileErr && (
+                <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: '8px', fontSize: '12px', color: '#991B1B' }}>
+                  <AlertCircle size={14} /> {profileErr}
+                </div>
+              )}
             </div>
 
-            {/* Profile result accordion */}
-            {(profileResult || profiling || profileErr) && (
-              <div className="cs-card" style={{ padding: 0, overflow: 'hidden' }}>
-                <button type="button" onClick={() => setProfileOpen(v => !v)} style={{
-                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '13px 16px', background: profileResult ? '#F0F7FF' : '#fff',
-                  border: 'none', cursor: 'pointer', borderBottom: profileOpen ? '1px solid #DBEAFE' : 'none',
-                }}>
+            {/* Semantic Profiler & Governance Evaluation Card */}
+            {(profileResult || profiling) && (
+              <div style={{
+                background: '#FFFFFF',
+                border: '1.5px solid #E2E8F0',
+                borderRadius: '16px',
+                padding: '24px',
+                boxShadow: '0 2px 12px rgba(15, 23, 42, 0.03)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <BarChart2 size={14} style={{ color: '#1D4ED8' }} />
-                    <span style={{ fontSize: '13px', fontWeight: 800, color: '#1E3A5F' }}>Profile & Routing Recommendations</span>
-                    {profileResult && (
-                      <span style={{ fontSize: '11px', fontWeight: 700, padding: '1px 8px', borderRadius: '999px', background: '#DBEAFE', color: '#1D4ED8' }}>
-                        Tier {profileResult.resolved_tier} · {profileResult.profile.complexity_score.toFixed(3)}
-                      </span>
-                    )}
+                    <BarChart2 size={16} style={{ color: '#0066FF' }} />
+                    <h3 style={{ fontSize: '14.5px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                      Prompt Profiling & Governance Checks
+                    </h3>
                   </div>
-                  <ChevronDown size={13} style={{ color: '#5C728D', transform: profileOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-                </button>
+                  {profileResult && (
+                    <span style={{
+                      padding: '3px 10px',
+                      borderRadius: '999px',
+                      background: profileResult.resolved_tier === 'T3' ? '#FEE2E2' : profileResult.resolved_tier === 'T2' ? '#FEF3C7' : '#DCFCE7',
+                      color: profileResult.resolved_tier === 'T3' ? '#991B1B' : profileResult.resolved_tier === 'T2' ? '#92400E' : '#166534',
+                      fontSize: '11.5px',
+                      fontWeight: 800
+                    }}>
+                      Tier {profileResult.resolved_tier} · Score {profileResult.profile.complexity_score.toFixed(3)}
+                    </span>
+                  )}
+                </div>
 
-                {profileOpen && (
-                  <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {profiling && [90, 70, 80, 55].map((w, i) => <div key={i} className="cs-skeleton" style={{ height: '11px', width: `${w}%` }} />)}
-                    {profileErr && <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#DC2626' }}><AlertCircle size={13} /> {profileErr}</div>}
-
-                    {profileResult && (
-                      <>
-                        {profileResult.governance_evaluations.length > 0 && (
-                          <div>
-                            <p style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <ShieldCheck size={11} /> Governance
-                            </p>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                              {profileResult.governance_evaluations.map((ev, i) => (
-                                <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 7px', borderRadius: '5px', fontSize: '11px', fontWeight: 600, background: ev.passed ? '#ECFDF5' : (ev.mode === 'dry_run' ? '#FEF3C7' : '#FEE2E2'), border: `1px solid ${ev.passed ? '#A7F3D0' : (ev.mode === 'dry_run' ? '#FDE68A' : '#FECACA')}`, color: ev.passed ? '#065F46' : (ev.mode === 'dry_run' ? '#92400E' : '#991B1B') }} title={ev.message}>
-                                  {ev.passed ? <CheckCircle size={10} /> : (ev.mode === 'dry_run' ? <AlertTriangle size={10} /> : <XCircle size={10} />)}
-                                  {ev.rule_type.replace('_', ' ')} · {ev.passed ? 'Pass' : 'Flag'}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        <div style={{ background: '#F8FAFC', borderRadius: '7px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px', marginBottom: '6px', fontSize: '11.5px' }}>
-                            {[['Domain', profileResult.profile.domain], ['Intent', profileResult.profile.intent], ['Task', profileResult.profile.task_type]].map(([k, v]) => (
-                              <div key={k}><span style={{ color: '#64748B', fontSize: '10.5px' }}>{k}: </span><strong style={{ color: '#0B1F3A' }}>{v}</strong></div>
-                            ))}
-                          </div>
-                          <DimBar label="D1 Semantic Complexity" value={profileResult.profile.dimensions.d1_semantic_complexity} />
-                          <DimBar label="D2 Domain Specificity" value={profileResult.profile.dimensions.d2_domain_specificity} />
-                          <DimBar label="D3 Output Formality" value={profileResult.profile.dimensions.d3_output_formality} />
-                          <DimBar label="D4 Research Dependency" value={profileResult.profile.dimensions.d4_research_dependency} />
-                        </div>
-
-                        {profileResult.recommendations.length > 0 && (
-                          <div>
-                            <p style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <Cpu size={11} /> Top Routing Picks
-                            </p>
-                            {profileResult.recommendations.slice(0, 3).map(rec => (
-                              <div key={rec.rank} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', marginBottom: '4px', background: rec.rank === 1 ? '#F0F7FF' : '#F8FAFC', border: `1px solid ${rec.rank === 1 ? '#BFDBFE' : '#E2E8F0'}`, borderRadius: '6px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: 800, color: rec.rank === 1 ? '#1D4ED8' : '#64748B', width: '18px', flexShrink: 0 }}>#{rec.rank}</span>
-                                <div style={{ flex: 1 }}>
-                                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#0B1F3A' }}>{rec.model_id}</span>
-                                  <span style={{ fontSize: '10.5px', color: '#64748B', marginLeft: '5px' }}>{rec.provider} · {rec.tier}</span>
-                                </div>
-                                <span style={{ fontSize: '10.5px', color: '#5C728D', fontFamily: 'monospace' }}>${rec.estimated_cost_usd.toFixed(6)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    )}
+                {profiling && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div className="cs-skeleton" style={{ height: '14px', width: '80%' }} />
+                    <div className="cs-skeleton" style={{ height: '14px', width: '60%' }} />
+                    <div className="cs-skeleton" style={{ height: '14px', width: '90%' }} />
                   </div>
                 )}
-              </div>
-            )}
-          </div>
 
-          {/* RIGHT: Response */}
-          <div className="cs-card" style={{ padding: 0, overflow: 'hidden', minHeight: '460px', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '13px 16px', borderBottom: '1px solid #EEF4FA', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Send size={14} style={{ color: '#0066FF' }} />
-                <span style={{ fontSize: '14px', fontWeight: 800, color: '#0B1F3A' }}>Response</span>
-              </div>
-              {response && (
-                <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', background: '#DCFCE7', border: '1px solid #86EFAC', color: '#15803D', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <CheckCircle2 size={10} /> {response.model_used_name}
-                </span>
-              )}
-            </div>
+                {profileResult && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {/* Domain & Intent Badges */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                      <div style={{ padding: '8px 10px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                        <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600 }}>Domain</div>
+                        <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#0F172A' }}>{profileResult.profile.domain}</div>
+                      </div>
+                      <div style={{ padding: '8px 10px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                        <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600 }}>Intent</div>
+                        <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#0F172A' }}>{profileResult.profile.intent}</div>
+                      </div>
+                      <div style={{ padding: '8px 10px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                        <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600 }}>Task Type</div>
+                        <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#0F172A' }}>{profileResult.profile.task_type}</div>
+                      </div>
+                    </div>
 
-            <div style={{ flex: 1, padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto' }}>
-              {!response && !routing && !responseErr && (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '40px 16px' }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#EBF3FF', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '12px' }}>
-                    <Send size={18} style={{ color: '#0066FF' }} />
-                  </div>
-                  <p style={{ fontSize: '13.5px', fontWeight: 700, color: '#0B1F3A', marginBottom: '5px' }}>No response yet</p>
-                  <p style={{ fontSize: '12px', color: '#5C728D', maxWidth: '260px', lineHeight: 1.5 }}>
-                    Profile your prompt first, then route it through governance-filtered models.
-                  </p>
-                </div>
-              )}
+                    {/* Dimensions Progress */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', background: '#F8FAFC', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                      <DimBar label="D1 Semantic Complexity" value={profileResult.profile.dimensions.d1_semantic_complexity} />
+                      <DimBar label="D2 Domain Specificity" value={profileResult.profile.dimensions.d2_domain_specificity} />
+                      <DimBar label="D3 Output Formality" value={profileResult.profile.dimensions.d3_output_formality} />
+                      <DimBar label="D4 Research Dependency" value={profileResult.profile.dimensions.d4_research_dependency} />
+                      <DimBar label="D5 Context Requirement" value={profileResult.profile.dimensions.d5_context_requirement} />
+                    </div>
 
-              {routing && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: '#0066FF', fontWeight: 600 }}>
-                    <span className="cs-spinner cs-spinner-blue" /> Governance → Routing → Invoking Bedrock…
-                  </div>
-                  {[100, 85, 92, 70, 88, 55].map((w, i) => <div key={i} className="cs-skeleton" style={{ height: '12px', width: `${w}%` }} />)}
-                </div>
-              )}
-
-              {responseErr && (
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '12px', background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: '8px' }}>
-                  <AlertCircle size={14} style={{ color: '#DC2626', flexShrink: 0, marginTop: '1px' }} />
-                  <div>
-                    <p style={{ fontSize: '12.5px', fontWeight: 700, color: '#991B1B', marginBottom: '2px' }}>Routing failed</p>
-                    <p style={{ fontSize: '12px', color: '#B91C1C', lineHeight: 1.5 }}>{responseErr}</p>
-                  </div>
-                </div>
-              )}
-
-              {response && (
-                <>
-                  {response.governance_evaluations && response.governance_evaluations.length > 0 && (
-                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '7px', padding: '9px 12px' }}>
-                      <p style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <ShieldCheck size={11} style={{ color: '#0066FF' }} /> Policy Results
-                      </p>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                        {response.governance_evaluations.map((ev, i) => (
-                          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 7px', borderRadius: '5px', fontSize: '11px', fontWeight: 600, background: ev.passed ? '#ECFDF5' : (ev.mode === 'dry_run' ? '#FEF3C7' : '#FEE2E2'), border: `1px solid ${ev.passed ? '#A7F3D0' : (ev.mode === 'dry_run' ? '#FDE68A' : '#FECACA')}`, color: ev.passed ? '#065F46' : (ev.mode === 'dry_run' ? '#92400E' : '#991B1B') }}>
-                            {ev.passed ? <CheckCircle size={10} /> : <XCircle size={10} />}
-                            {ev.rule_type.replace('_', ' ')} · {ev.passed ? 'Pass' : 'Flag'}
+                    {/* Governance Evaluations */}
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px' }}>
+                        Governance Policy Verification
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {profileResult.governance_evaluations.map((ev, i) => (
+                          <span
+                            key={i}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              fontSize: '11.5px',
+                              fontWeight: 600,
+                              background: ev.passed ? '#ECFDF5' : '#FEE2E2',
+                              border: `1px solid ${ev.passed ? '#A7F3D0' : '#FECACA'}`,
+                              color: ev.passed ? '#065F46' : '#991B1B'
+                            }}
+                            title={ev.message}
+                          >
+                            {ev.passed ? <CheckCircle size={11} /> : <XCircle size={11} />}
+                            {ev.rule_type.replace('_', ' ')}: {ev.passed ? 'Passed' : 'Violation'}
                           </span>
                         ))}
                       </div>
                     </div>
-                  )}
-
-                  {response.routing_reason && response.routing_reason.length > 0 && (
-                    <div style={{ background: '#F0F7FF', border: '1px solid #BFDBFE', borderRadius: '7px', padding: '9px 12px', fontSize: '12px' }}>
-                      <strong style={{ color: '#1E40AF', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
-                        <Cpu size={11} /> Why this model:
-                      </strong>
-                      <ul style={{ margin: 0, paddingLeft: '15px', lineHeight: 1.6, color: '#1E3A5F' }}>
-                        {response.routing_reason.map((r, i) => <li key={i}>{r}</li>)}
-                      </ul>
-                    </div>
-                  )}
-
-                  {response.fallback_used && (
-                    <div style={{ display: 'flex', gap: '7px', padding: '9px 12px', background: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: '7px', fontSize: '12px', color: '#B45309' }}>
-                      <Info size={13} style={{ flexShrink: 0, marginTop: '1px' }} />
-                      Primary ({response.fallback_from}) failed — fell back to <strong>{response.model_used_name}</strong>.
-                    </div>
-                  )}
-
-                  <div style={{ fontSize: '13.5px', color: '#0B1F3A', lineHeight: 1.7, whiteSpace: 'pre-wrap', background: '#fff', padding: '12px', borderRadius: '7px', border: '1px solid #E2E8F0' }}>
-                    {response.text}
                   </div>
-                </>
-              )}
-            </div>
-
-            {response && (
-              <div style={{ borderTop: '1px solid #EEF4FA', padding: '10px 16px', background: '#FAFCFF', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-                {response.latency_ms !== undefined && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#5C728D' }}>
-                    <Clock size={11} style={{ color: '#8EA3BD' }} /> {response.latency_ms} ms
-                  </span>
                 )}
-                {response.tokens_used !== undefined && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#5C728D' }}>
-                    <Activity size={11} style={{ color: '#8EA3BD' }} /> {response.tokens_used} tokens
-                  </span>
-                )}
-                {response.cost_estimate !== undefined && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#5C728D' }}>
-                    <DollarSign size={11} style={{ color: '#8EA3BD' }} /> ~${response.cost_estimate.toFixed(6)}
-                  </span>
-                )}
-                <button type="button" onClick={() => { setResponse(null); setProfileResult(null); setPrompt(''); }}
-                  style={{ marginLeft: 'auto', background: 'none', border: '1px solid #E2E8F0', borderRadius: '5px', padding: '4px 10px', cursor: 'pointer', fontSize: '11px', color: '#5C728D' }}>
-                  Clear
-                </button>
               </div>
             )}
           </div>
 
+          {/* ════════ RIGHT COLUMN: Top 3 Recommendations & Invocation ════════ */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+            {/* Top 3 Recommendations Card */}
+            <div style={{
+              background: '#FFFFFF',
+              border: '1.5px solid #E2E8F0',
+              borderRadius: '16px',
+              padding: '24px',
+              boxShadow: '0 2px 12px rgba(15, 23, 42, 0.03)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                  <Cpu size={16} style={{ color: '#0066FF' }} /> Top 3 Models from Allowed List
+                </h2>
+                <span style={{ fontSize: '11.5px', fontWeight: 700, padding: '2px 8px', background: '#EFF6FF', color: '#1D4ED8', borderRadius: '6px' }}>
+                  Allowed Pool: {permittedModels.length} Models
+                </span>
+              </div>
+              <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '16px' }}>
+                Ranked by prompt semantic complexity, provider capability match, context safety margin, and price/performance efficiency.
+              </p>
+
+              {activeRecommendations.length === 0 && !routing && !profiling && (
+                <div style={{ textAlign: 'center', padding: '36px 16px', background: '#F8FAFC', borderRadius: '12px', border: '1px dashed #CBD5E1' }}>
+                  <Cpu size={24} style={{ color: '#94A3B8', margin: '0 auto 8px' }} />
+                  <p style={{ fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>No recommendations yet</p>
+                  <p style={{ fontSize: '12px', color: '#64748B', maxWidth: '320px', margin: '0 auto' }}>
+                    Enter a prompt and click "Profile Prompt" or "Route & Invoke" to evaluate optimal models.
+                  </p>
+                </div>
+              )}
+
+              {(routing || profiling) && activeRecommendations.length === 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {[1, 2, 3].map(n => (
+                    <div key={n} className="cs-skeleton" style={{ height: '72px', borderRadius: '10px' }} />
+                  ))}
+                </div>
+              )}
+
+              {activeRecommendations.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {activeRecommendations.slice(0, 3).map(rec => {
+                    const isRank1 = rec.rank === 1;
+                    const isRank2 = rec.rank === 2;
+                    const isRank3 = rec.rank === 3;
+
+                    // Match actual model invoked
+                    const isModelUsed = response?.model_used_name?.toLowerCase().includes(rec.model_id.replace(/-/g, ' ').toLowerCase()) ||
+                                        response?.routed_model_id === rec.model_id ||
+                                        (response?.model_used && rec.bedrock_model_id && response.model_used.includes(rec.bedrock_model_id));
+
+                    return (
+                      <div
+                        key={rec.rank}
+                        style={{
+                          padding: '14px 16px',
+                          borderRadius: '12px',
+                          background: isRank1 ? '#F0F7FF' : '#FFFFFF',
+                          border: `1.5px solid ${isRank1 ? '#3B82F6' : '#E2E8F0'}`,
+                          boxShadow: isRank1 ? '0 4px 12px rgba(59, 130, 246, 0.08)' : 'none',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{
+                              width: '24px', height: '24px',
+                              borderRadius: '50%',
+                              background: isRank1 ? '#1D4ED8' : isRank2 ? '#64748B' : '#94A3B8',
+                              color: '#FFFFFF',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: '12px', fontWeight: 800
+                            }}>
+                              #{rec.rank}
+                            </span>
+                            <div>
+                              <span style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A' }}>
+                                {rec.model_id.replace(/-/g, ' ').toUpperCase()}
+                              </span>
+                              <span style={{ fontSize: '11.5px', color: '#64748B', marginLeft: '8px' }}>
+                                {rec.provider} · {rec.tier}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#0F172A', fontFamily: 'monospace' }}>
+                              ${rec.estimated_cost_usd.toFixed(6)}
+                            </span>
+                            {isModelUsed && (
+                              <span style={{ padding: '2px 8px', borderRadius: '999px', background: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC', fontSize: '10.5px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                <CheckCircle2 size={11} /> Invoked
+                              </span>
+                            )}
+                            {isRank1 && (
+                              <span style={{ padding: '2px 8px', borderRadius: '999px', background: '#DBEAFE', color: '#1E40AF', fontSize: '10.5px', fontWeight: 800 }}>
+                                Primary Choice
+                              </span>
+                            )}
+                            {isRank2 && (
+                              <span style={{ padding: '2px 8px', borderRadius: '999px', background: '#F1F5F9', color: '#475569', fontSize: '10.5px', fontWeight: 700 }}>
+                                Standby Fallback 1
+                              </span>
+                            )}
+                            {isRank3 && (
+                              <span style={{ padding: '2px 8px', borderRadius: '999px', background: '#F1F5F9', color: '#475569', fontSize: '10.5px', fontWeight: 700 }}>
+                                Standby Fallback 2
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Reason / Score Tags */}
+                        {rec.reasons && rec.reasons.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '2px' }}>
+                            {rec.reasons.map((r, ri) => (
+                              <span key={ri} style={{ fontSize: '11px', color: '#334155', background: isRank1 ? '#E0EDFF' : '#F1F5F9', padding: '2px 8px', borderRadius: '4px' }}>
+                                {r}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Response Card */}
+            <div style={{
+              background: '#FFFFFF',
+              border: '1.5px solid #E2E8F0',
+              borderRadius: '16px',
+              overflow: 'hidden',
+              boxShadow: '0 2px 12px rgba(15, 23, 42, 0.03)',
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: '380px'
+            }}>
+              <div style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid #E2E8F0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: '#FDFEFE'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Send size={15} style={{ color: '#0066FF' }} />
+                  <span style={{ fontSize: '14.5px', fontWeight: 800, color: '#0F172A' }}>
+                    Model Invocation Response
+                  </span>
+                </div>
+                {response && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '3px 10px',
+                      borderRadius: '999px',
+                      background: '#DCFCE7',
+                      border: '1px solid #86EFAC',
+                      fontSize: '11.5px',
+                      fontWeight: 800,
+                      color: '#166534'
+                    }}>
+                      <CheckCircle2 size={12} /> Invoked: {response.model_used_name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyText(response.text)}
+                      style={{
+                        background: '#F1F5F9',
+                        border: '1px solid #CBD5E1',
+                        borderRadius: '6px',
+                        padding: '4px 8px',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        color: '#334155',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <Copy size={11} /> {copied ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {!response && !routing && !responseErr && (
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '40px 16px' }}>
+                    <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
+                      <Send size={20} style={{ color: '#0066FF' }} />
+                    </div>
+                    <p style={{ fontSize: '14px', fontWeight: 700, color: '#1E293B', marginBottom: '4px' }}>Ready for Invocation</p>
+                    <p style={{ fontSize: '12.5px', color: '#64748B', maxWidth: '340px', lineHeight: 1.5 }}>
+                      Click "Route & Invoke" to profile prompt complexity and execute automatic invocation on AWS Bedrock through your connected account.
+                    </p>
+                  </div>
+                )}
+
+                {routing && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '20px 0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#0066FF', fontWeight: 700 }}>
+                      <span className="cs-spinner cs-spinner-blue" /> Evaluating Governance → Profiling → Attempting Invocation (Rank 1 → 2 → 3)...
+                    </div>
+                    {[100, 85, 95, 75, 90, 60].map((w, i) => (
+                      <div key={i} className="cs-skeleton" style={{ height: '14px', width: `${w}%` }} />
+                    ))}
+                  </div>
+                )}
+
+                {responseErr && (
+                  <div style={{ padding: '14px', background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: '10px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                    <AlertCircle size={18} style={{ color: '#DC2626', flexShrink: 0, marginTop: '2px' }} />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#991B1B', marginBottom: '2px' }}>Invocation Error</div>
+                      <div style={{ fontSize: '12px', color: '#B91C1C', lineHeight: 1.5 }}>{responseErr}</div>
+                    </div>
+                  </div>
+                )}
+
+                {response && (
+                  <>
+                    {/* Fallback Banner */}
+                    {response.fallback_used ? (
+                      <div style={{ display: 'flex', gap: '8px', padding: '10px 14px', background: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: '8px', fontSize: '12.5px', color: '#92400E' }}>
+                        <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: '1px' }} />
+                        <div>
+                          Primary model ({response.fallback_from}) failed invocation. Intelligent router automatically fell back to <strong>{response.model_used_name}</strong> without request failure.
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: '8px', padding: '8px 12px', background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '8px', fontSize: '12px', color: '#065F46', fontWeight: 600 }}>
+                        <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
+                        Rank #1 model invoked directly on AWS Bedrock with 100% success.
+                      </div>
+                    )}
+
+                    {/* Benchmark Comparison Insight */}
+                    {response.comparison_insight && (
+                      <div style={{ padding: '10px 14px', background: '#F8FAFC', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '12px', color: '#1E293B', lineHeight: 1.5 }}>
+                        <strong>Benchmark Insight: </strong>
+                        {response.comparison_insight}
+                      </div>
+                    )}
+
+                    {/* Output Text */}
+                    <div style={{
+                      fontSize: '13.5px',
+                      color: '#0F172A',
+                      lineHeight: 1.7,
+                      whiteSpace: 'pre-wrap',
+                      background: '#FDFEFE',
+                      padding: '16px',
+                      borderRadius: '10px',
+                      border: '1px solid #E2E8F0',
+                      flex: 1
+                    }}>
+                      {response.text}
+                    </div>
+
+                    {/* Latency & Token Usage Footer */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', borderTop: '1px solid #F1F5F9', paddingTop: '10px', fontSize: '12px', color: '#64748B' }}>
+                      {response.latency_ms !== undefined && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Clock size={13} style={{ color: '#0284C7' }} /> Latency: <strong>{response.latency_ms} ms</strong>
+                        </span>
+                      )}
+                      {response.tokens_used !== undefined && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Zap size={13} style={{ color: '#F59E0B' }} /> Tokens: <strong>{response.tokens_used.toLocaleString()}</strong>
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+          </div>
         </div>
+
       </main>
+
+      {/* ════════ GUARDRAILS CONFIGURATION MODAL / DRAWER ════════ */}
+      {guardrailsOpen && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          background: 'rgba(15, 23, 42, 0.5)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: '18px',
+            maxWidth: '780px',
+            width: '100%',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 20px 40px rgba(15, 23, 42, 0.2)',
+            overflow: 'hidden'
+          }}>
+            {/* Modal Header */}
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                  Organization AI Guardrails & Allowed Models
+                </h3>
+                <p style={{ fontSize: '12.5px', color: '#64748B', marginTop: '2px' }}>
+                  Models checked below form the permitted routing pool for prompts in this organization.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setGuardrailsOpen(false)}
+                style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '22px' }}>
+
+              {/* 1. Allowed Models Policy */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Lock size={14} style={{ color: '#0066FF' }} /> Permitted Models ({allowedModels.length} Selected)
+                  </label>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setAllowedModels(allModels.map(m => m.id))}
+                      style={{ background: 'none', border: 'none', color: '#0066FF', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      Select All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { if (allModels[0]) setAllowedModels([allModels[0].id]); }}
+                      style={{ background: 'none', border: 'none', color: '#64748B', fontSize: '12px', cursor: 'pointer' }}
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+                  {allModels.map(m => {
+                    const isSel = allowedModels.includes(m.id);
+                    return (
+                      <div
+                        key={m.id}
+                        onClick={() => {
+                          if (isSel) {
+                            if (allowedModels.length > 1) setAllowedModels(allowedModels.filter(x => x !== m.id));
+                          } else {
+                            setAllowedModels([...allowedModels, m.id]);
+                          }
+                        }}
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          border: `1.5px solid ${isSel ? '#0066FF' : '#CBD5E1'}`,
+                          background: isSel ? '#EFF6FF' : '#FFFFFF',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          transition: 'all 0.1s'
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#0F172A' }}>{m.name}</div>
+                          <div style={{ fontSize: '11px', color: '#64748B' }}>{m.provider} · {m.contextWindow || '128K'}</div>
+                        </div>
+                        <div style={{
+                          width: '18px', height: '18px', borderRadius: '4px',
+                          border: `1.5px solid ${isSel ? '#0066FF' : '#CBD5E1'}`,
+                          background: isSel ? '#0066FF' : '#FFFFFF',
+                          color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}>
+                          {isSel && <Check size={12} strokeWidth={3} />}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. Context Window Guardrail */}
+              <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                <label style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                  <Sliders size={14} style={{ color: '#0066FF' }} /> Context Window Token Limits
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                  <div>
+                    <span style={{ fontSize: '11.5px', color: '#475569', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                      Max Input Tokens Cap
+                    </span>
+                    <input
+                      type="number"
+                      value={maxInputTokens}
+                      onChange={e => setMaxInputTokens(Number(e.target.value))}
+                      className="cs-input"
+                      style={{ height: '38px', fontSize: '13px' }}
+                    />
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                      {[32000, 128000, 200000, 300000].map(v => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => setMaxInputTokens(v)}
+                          style={{
+                            padding: '2px 6px', borderRadius: '4px',
+                            background: maxInputTokens === v ? '#DBEAFE' : '#E2E8F0',
+                            color: maxInputTokens === v ? '#1E40AF' : '#475569',
+                            fontSize: '10.5px', fontWeight: 600, border: 'none', cursor: 'pointer'
+                          }}
+                        >
+                          {(v / 1000).toFixed(0)}K
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '11.5px', color: '#475569', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                      Max Total Tokens (In + Out)
+                    </span>
+                    <input
+                      type="number"
+                      value={maxTotalTokens}
+                      onChange={e => setMaxTotalTokens(Number(e.target.value))}
+                      className="cs-input"
+                      style={{ height: '38px', fontSize: '13px' }}
+                    />
+                    <span style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px', display: 'block' }}>
+                      Protects against unbounded generational cost.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Rate & Quota Guardrail */}
+              <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                <label style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                  <Activity size={14} style={{ color: '#0066FF' }} /> Throttling & Daily Quotas
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                  <div>
+                    <span style={{ fontSize: '11.5px', color: '#475569', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                      Rate Limit (Requests / Min)
+                    </span>
+                    <input
+                      type="number"
+                      value={rateLimitRpm}
+                      onChange={e => setRateLimitRpm(Number(e.target.value))}
+                      className="cs-input"
+                      style={{ height: '38px', fontSize: '13px' }}
+                    />
+                    <span style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px', display: 'block' }}>
+                      Prevents surge traffic and API exhaustion.
+                    </span>
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '11.5px', color: '#475569', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                      Daily Token Budget
+                    </span>
+                    <input
+                      type="number"
+                      value={dailyTokenQuota}
+                      onChange={e => setDailyTokenQuota(Number(e.target.value))}
+                      className="cs-input"
+                      style={{ height: '38px', fontSize: '13px' }}
+                    />
+                    <span style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px', display: 'block' }}>
+                      {(dailyTokenQuota / 1000000).toFixed(1)}M tokens per 24 hours.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {rulesSaveOk && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: '#DCFCE7', border: '1px solid #86EFAC', borderRadius: '8px', fontSize: '12.5px', color: '#15803D', fontWeight: 700 }}>
+                  <CheckCircle2 size={16} /> Enterprise guardrails successfully saved and active.
+                </div>
+              )}
+
+              {rulesSaveErr && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: '8px', fontSize: '12.5px', color: '#991B1B', fontWeight: 600 }}>
+                  <AlertCircle size={16} /> {rulesSaveErr}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ padding: '16px 24px', borderTop: '1px solid #E2E8F0', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setGuardrailsOpen(false)}
+                className="cs-btn cs-btn-outline"
+                style={{ height: '40px', padding: '0 16px', fontSize: '13px' }}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSaveGuardrails}
+                disabled={savingRules}
+                className="cs-btn cs-btn-primary"
+                style={{ height: '40px', padding: '0 20px', fontSize: '13px', gap: '6px', fontWeight: 700 }}
+              >
+                {savingRules ? (
+                  <><span className="cs-spinner" style={{ width: '13px', height: '13px' }} /> Saving...</>
+                ) : (
+                  <><Save size={14} /> Save Guardrails</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
