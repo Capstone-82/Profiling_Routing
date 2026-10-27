@@ -2,10 +2,25 @@ import pytest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 from main import app
+from app.auth.supabase_auth import CurrentUser, get_current_user
 from app.schemas import ConnectionResponse, ModelSchema
 from app.services.governance_service import GovernanceRule
 
 client = TestClient(app)
+app.dependency_overrides[get_current_user] = lambda: CurrentUser(
+    user_id="demo-user-uuid",
+    organization_id="demo-user-uuid",
+    email="demo@example.com",
+)
+
+
+@pytest.fixture(autouse=True)
+def use_prompt_test_user():
+    app.dependency_overrides[get_current_user] = lambda: CurrentUser(
+        user_id="demo-user-uuid",
+        organization_id="demo-user-uuid",
+        email="demo@example.com",
+    )
 
 VERIFIED_CONN = ConnectionResponse(
     provider="aws-bedrock",

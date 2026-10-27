@@ -76,6 +76,37 @@ export function GovernancePage() {
   const [maxTotalTokens, setMaxTotalTokens] = useState(250000);
   const [rateLimitRpm, setRateLimitRpm] = useState(60);
   const [dailyTokenQuota, setDailyTokenQuota] = useState(5000000);
+  const [piiEnabled, setPiiEnabled] = useState(false);
+  const [piiScanInput, setPiiScanInput] = useState(true);
+  const [piiScanOutput, setPiiScanOutput] = useState(true);
+  const [piiAction, setPiiAction] = useState<'ALLOW' | 'MASK' | 'BLOCK'>('BLOCK');
+  const [piiEntities, setPiiEntities] = useState(['EMAIL_ADDRESS', 'PHONE_NUMBER', 'PERSON', 'ADDRESS', 'IN_AADHAAR', 'IN_PAN']);
+  const [toxicityEnabled, setToxicityEnabled] = useState(false);
+  const [toxicityScanInput, setToxicityScanInput] = useState(true);
+  const [toxicityScanOutput, setToxicityScanOutput] = useState(true);
+  const [toxicityAction, setToxicityAction] = useState<'ALLOW' | 'FLAG' | 'BLOCK' | 'REGENERATE'>('FLAG');
+  const [toxicityThreshold, setToxicityThreshold] = useState(0.7);
+  const [toxicityCategories, setToxicityCategories] = useState(['toxicity', 'insult', 'threat', 'identity_hate', 'obscene', 'profanity']);
+  const [injectionEnabled, setInjectionEnabled] = useState(false);
+  const [injectionThreshold, setInjectionThreshold] = useState(0.8);
+  const [injectionAction, setInjectionAction] = useState<'ALLOW' | 'FLAG' | 'BLOCK' | 'REVIEW'>('FLAG');
+  const [hallucinationEnabled, setHallucinationEnabled] = useState(false);
+  const [hallucinationProvider, setHallucinationProvider] = useState('limited_evidence');
+  const [hallucinationAction, setHallucinationAction] = useState<'ALLOW' | 'FLAG' | 'BLOCK' | 'REVIEW' | 'REGENERATE'>('FLAG');
+  const [hallucinationThreshold, setHallucinationThreshold] = useState(0.7);
+  const [hallucinationFailureMode, setHallucinationFailureMode] = useState<'BLOCK' | 'ALLOW' | 'REVIEW'>('BLOCK');
+  const [concisenessEnabled, setConcisenessEnabled] = useState(false);
+  const [concisenessMaxWords, setConcisenessMaxWords] = useState(500);
+  const [concisenessMaxCharacters, setConcisenessMaxCharacters] = useState(3500);
+  const [concisenessMaxSentences, setConcisenessMaxSentences] = useState(20);
+  const [concisenessLength, setConcisenessLength] = useState<'SHORT' | 'MEDIUM' | 'LONG'>('MEDIUM');
+  const [concisenessAction, setConcisenessAction] = useState<'ALLOW' | 'FLAG' | 'BLOCK' | 'REVIEW' | 'REGENERATE'>('FLAG');
+  const [concisenessFailureMode, setConcisenessFailureMode] = useState<'BLOCK' | 'ALLOW' | 'REVIEW'>('BLOCK');
+  const [racialBiasEnabled, setRacialBiasEnabled] = useState(false);
+  const [racialBiasProvider, setRacialBiasProvider] = useState('conservative_baseline');
+  const [racialBiasThreshold, setRacialBiasThreshold] = useState(0.75);
+  const [racialBiasAction, setRacialBiasAction] = useState<'ALLOW' | 'FLAG' | 'BLOCK' | 'REVIEW' | 'REGENERATE'>('FLAG');
+  const [racialBiasFailureMode, setRacialBiasFailureMode] = useState<'BLOCK' | 'ALLOW' | 'REVIEW'>('BLOCK');
 
   const [guardrailsOpen, setGuardrailsOpen] = useState(false);
   const [savingRules, setSavingRules] = useState(false);
@@ -93,7 +124,6 @@ export function GovernancePage() {
 
   useEffect(() => {
     getConnection(user?.id).then(setConnection);
-
     getAvailableModels(user?.id).then(ms => {
       setAllModels(ms);
       const allIds = ms.map(m => m.providerModelId);
@@ -103,7 +133,7 @@ export function GovernancePage() {
         fetchGovernanceRules(user.id).then((rules: GovernanceRule[]) => {
           rules.forEach(r => {
             if (r.rule_type === 'allow_list' && r.config.allowed_bedrock_model_ids) {
-              const saved = r.config.allowed_bedrock_model_ids as string[];
+              const saved = (r.config.allowed_model_ids || r.config.allowed_bedrock_model_ids) as string[];
               const matched = ms.filter(m => saved.includes(m.providerModelId)).map(m => m.providerModelId);
               if (matched.length > 0) setAllowedBedrockIds(matched);
             } else if (r.rule_type === 'context_window') {
@@ -113,6 +143,43 @@ export function GovernancePage() {
             } else if (r.rule_type === 'throttle') {
               if (r.config.rate_limit_rpm) setRateLimitRpm(r.config.rate_limit_rpm as number);
               if (r.config.quota_per_day_tokens) setDailyTokenQuota(r.config.quota_per_day_tokens as number);
+            } else if (r.rule_type === 'pii') {
+              setPiiEnabled(Boolean(r.config.enabled));
+              setPiiScanInput(r.config.scan_input !== false);
+              setPiiScanOutput(r.config.scan_output !== false);
+              if (r.config.action === 'ALLOW' || r.config.action === 'MASK' || r.config.action === 'BLOCK') setPiiAction(r.config.action);
+              if (Array.isArray(r.config.entities)) setPiiEntities(r.config.entities as string[]);
+            } else if (r.rule_type === 'toxicity') {
+              setToxicityEnabled(Boolean(r.config.enabled));
+              setToxicityScanInput(r.config.scan_input !== false);
+              setToxicityScanOutput(r.config.scan_output !== false);
+              if (r.config.action === 'ALLOW' || r.config.action === 'FLAG' || r.config.action === 'BLOCK' || r.config.action === 'REGENERATE') setToxicityAction(r.config.action);
+              if (typeof r.config.score_threshold === 'number') setToxicityThreshold(r.config.score_threshold);
+              if (Array.isArray(r.config.categories)) setToxicityCategories(r.config.categories as string[]);
+            } else if (r.rule_type === 'prompt_injection') {
+              setInjectionEnabled(Boolean(r.config.enabled));
+              if (typeof r.config.score_threshold === 'number') setInjectionThreshold(r.config.score_threshold);
+              if (r.config.action === 'ALLOW' || r.config.action === 'FLAG' || r.config.action === 'BLOCK' || r.config.action === 'REVIEW') setInjectionAction(r.config.action);
+            } else if (r.rule_type === 'hallucination') {
+              setHallucinationEnabled(Boolean(r.config.enabled));
+              if (typeof r.config.provider === 'string') setHallucinationProvider(r.config.provider);
+              if (typeof r.config.confidence_threshold === 'number') setHallucinationThreshold(r.config.confidence_threshold);
+              if (r.config.action === 'ALLOW' || r.config.action === 'FLAG' || r.config.action === 'BLOCK' || r.config.action === 'REVIEW' || r.config.action === 'REGENERATE') setHallucinationAction(r.config.action);
+              if (r.config.failure_mode === 'BLOCK' || r.config.failure_mode === 'ALLOW' || r.config.failure_mode === 'REVIEW') setHallucinationFailureMode(r.config.failure_mode);
+            } else if (r.rule_type === 'conciseness') {
+              setConcisenessEnabled(Boolean(r.config.enabled));
+              if (typeof r.config.max_words === 'number') setConcisenessMaxWords(r.config.max_words);
+              if (typeof r.config.max_characters === 'number') setConcisenessMaxCharacters(r.config.max_characters);
+              if (typeof r.config.max_sentences === 'number') setConcisenessMaxSentences(r.config.max_sentences);
+              if (r.config.response_length === 'SHORT' || r.config.response_length === 'MEDIUM' || r.config.response_length === 'LONG') setConcisenessLength(r.config.response_length);
+              if (r.config.action === 'ALLOW' || r.config.action === 'FLAG' || r.config.action === 'BLOCK' || r.config.action === 'REVIEW' || r.config.action === 'REGENERATE') setConcisenessAction(r.config.action);
+              if (r.config.failure_mode === 'BLOCK' || r.config.failure_mode === 'ALLOW' || r.config.failure_mode === 'REVIEW') setConcisenessFailureMode(r.config.failure_mode);
+            } else if (r.rule_type === 'racial_bias') {
+              setRacialBiasEnabled(Boolean(r.config.enabled));
+              if (typeof r.config.provider === 'string') setRacialBiasProvider(r.config.provider);
+              if (typeof r.config.confidence_threshold === 'number') setRacialBiasThreshold(r.config.confidence_threshold);
+              if (r.config.action === 'ALLOW' || r.config.action === 'FLAG' || r.config.action === 'BLOCK' || r.config.action === 'REVIEW' || r.config.action === 'REGENERATE') setRacialBiasAction(r.config.action);
+              if (r.config.failure_mode === 'BLOCK' || r.config.failure_mode === 'ALLOW' || r.config.failure_mode === 'REVIEW') setRacialBiasFailureMode(r.config.failure_mode);
             }
           });
         });
@@ -127,9 +194,15 @@ export function GovernancePage() {
     setSavingRules(true); setRulesSaveOk(false); setRulesSaveErr('');
     try {
       const results = await Promise.all([
-        saveGovernanceRule({ rule_type: 'allow_list', mode: 'enforce', config: { allowed_bedrock_model_ids: allowedBedrockIds } }, user?.id),
+        saveGovernanceRule({ rule_type: 'allow_list', mode: 'enforce', config: { allowed_model_ids: allowedBedrockIds, allowed_bedrock_model_ids: allowedBedrockIds } }, user?.id),
         saveGovernanceRule({ rule_type: 'context_window', mode: 'enforce', config: { max_input_tokens: maxInputTokens, max_output_tokens: maxOutputTokens, max_total_tokens: maxTotalTokens } }, user?.id),
         saveGovernanceRule({ rule_type: 'throttle', mode: 'enforce', config: { rate_limit_rpm: rateLimitRpm, quota_per_day_tokens: dailyTokenQuota } }, user?.id),
+        saveGovernanceRule({ rule_type: 'pii', mode: 'enforce', config: { enabled: piiEnabled, scan_input: piiScanInput, scan_output: piiScanOutput, action: piiAction, entities: piiEntities, failure_mode: 'BLOCK' } }, user?.id),
+        saveGovernanceRule({ rule_type: 'toxicity', mode: 'enforce', config: { enabled: toxicityEnabled, scan_input: toxicityScanInput, scan_output: toxicityScanOutput, action: toxicityAction, score_threshold: toxicityThreshold, categories: toxicityCategories, failure_mode: 'BLOCK' } }, user?.id),
+        saveGovernanceRule({ rule_type: 'prompt_injection', mode: 'enforce', config: { enabled: injectionEnabled, scan_input: true, action: injectionAction, score_threshold: injectionThreshold, failure_mode: 'BLOCK' } }, user?.id),
+        saveGovernanceRule({ rule_type: 'hallucination', mode: 'enforce', config: { enabled: hallucinationEnabled, provider: hallucinationProvider, action: hallucinationAction, confidence_threshold: hallucinationThreshold, failure_mode: hallucinationFailureMode } }, user?.id),
+        saveGovernanceRule({ rule_type: 'conciseness', mode: 'enforce', config: { enabled: concisenessEnabled, max_words: concisenessMaxWords, max_characters: concisenessMaxCharacters, max_sentences: concisenessMaxSentences, response_length: concisenessLength, action: concisenessAction, failure_mode: concisenessFailureMode } }, user?.id),
+        saveGovernanceRule({ rule_type: 'racial_bias', mode: 'enforce', config: { enabled: racialBiasEnabled, provider: racialBiasProvider, confidence_threshold: racialBiasThreshold, action: racialBiasAction, failure_mode: racialBiasFailureMode } }, user?.id),
       ]);
       if (results.some(ok => !ok)) throw new Error('One or more guardrail rules failed to save');
       setRulesSaveOk(true);
@@ -625,6 +698,80 @@ export function GovernancePage() {
                       </div>
                     )}
 
+                    {((response.pii_input_findings?.length ?? 0) > 0 || (response.pii_output_findings?.length ?? 0) > 0) && (
+                      <div style={{ padding: '10px 14px', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '8px', fontSize: '12px', color: '#9A3412' }}>
+                        <strong>PII guardrail:</strong>{' '}
+                        {response.pii_input_masked || response.pii_output_masked ? 'detected values were masked.' : 'detections were recorded without exposing values.'}
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                          {[...(response.pii_input_findings || []), ...(response.pii_output_findings || [])].map((finding, index) => (
+                            <span key={`${finding.entity_type}-${index}`} style={{ background: '#FFEDD5', borderRadius: '4px', padding: '2px 6px', fontSize: '11px' }}>
+                              {finding.entity_type} ({finding.count})
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {((response.toxicity_input_findings?.length ?? 0) > 0 || (response.toxicity_output_findings?.length ?? 0) > 0) && (
+                      <div style={{ padding: '10px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', fontSize: '12px', color: '#991B1B' }}>
+                        <strong>Toxicity guardrail:</strong> detections were recorded without exposing prompt or response text.
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                          {[...(response.toxicity_input_findings || []), ...(response.toxicity_output_findings || [])].map((finding, index) => (
+                            <span key={`${finding.category}-${index}`} style={{ background: '#FEE2E2', borderRadius: '4px', padding: '2px 6px', fontSize: '11px' }}>
+                              {finding.category} ({finding.score.toFixed(2)})
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {(response.prompt_injection_input_findings?.length ?? 0) > 0 && (
+                      <div style={{ padding: '10px 14px', background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: '8px', fontSize: '12px', color: '#5B21B6' }}>
+                        <strong>Prompt injection guardrail:</strong> detected input manipulation attempt; action {response.prompt_injection_input_action || 'FLAG'}.
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                          {(response.prompt_injection_input_findings || []).map((finding, index) => (
+                            <span key={`${finding.category}-${index}`} style={{ background: '#EDE9FE', borderRadius: '4px', padding: '2px 6px', fontSize: '11px' }}>
+                              {finding.category} ({finding.score.toFixed(2)})
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {response.hallucination_status && response.hallucination_status !== 'SUPPORTED' && (
+                      <div style={{ padding: '10px 14px', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '8px', fontSize: '12px', color: '#1E40AF' }}>
+                        <strong>Hallucination guardrail:</strong> {response.hallucination_status} ({response.hallucination_confidence?.toFixed(2) ?? '0.00'}); action {response.hallucination_action || 'FLAG'}.
+                        <div style={{ marginTop: '6px' }}>{response.hallucination_explanation}</div>
+                        {response.hallucination_findings?.map((finding, index) => (
+                          <div key={`${finding.status}-${index}`} style={{ marginTop: '5px' }}>
+                            <strong>{finding.status}</strong> ({finding.confidence.toFixed(2)}): {finding.explanation}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {(response.conciseness_findings?.length ?? 0) > 0 && (
+                      <div style={{ padding: '10px 14px', background: '#F0FDFA', border: '1px solid #99F6E4', borderRadius: '8px', fontSize: '12px', color: '#115E59' }}>
+                        <strong>Conciseness guardrail:</strong> action {response.conciseness_action || 'FLAG'}.
+                        <div style={{ marginTop: '5px' }}>
+                          {response.conciseness_word_count ?? 0} words, {response.conciseness_character_count ?? 0} characters, {response.conciseness_sentence_count ?? 0} sentences
+                          {response.conciseness_repetition_ratio ? `; repetition ${Math.round(response.conciseness_repetition_ratio * 100)}%` : ''}.
+                        </div>
+                        {response.conciseness_findings?.map((finding, index) => (
+                          <div key={`${finding.code}-${index}`} style={{ marginTop: '5px' }}>
+                            <strong>{finding.code}</strong>: {finding.message}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {response.racial_bias_status && response.racial_bias_status !== 'CLEAR' && (
+                      <div style={{ padding: '10px 14px', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '8px', fontSize: '12px', color: '#9A3412' }}>
+                        <strong>Racial bias guardrail:</strong> {response.racial_bias_status} ({response.racial_bias_confidence?.toFixed(2) ?? '0.00'}); action {response.racial_bias_action || 'FLAG'}.
+                        <div style={{ marginTop: '5px' }}>{response.racial_bias_explanation}</div>
+                        {response.racial_bias_findings?.map((finding, index) => (
+                          <div key={`${finding.category}-${index}`} style={{ marginTop: '5px' }}>
+                            <strong>{finding.category}</strong> ({finding.confidence.toFixed(2)}): {finding.explanation}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px', borderTop: '1px solid #F1F5F9', paddingTop: '10px', fontSize: '12px', color: '#64748B' }}>
                       {response.latency_ms != null && (
                         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={13} style={{ color: '#0284C7' }} /> Latency: <strong>{response.latency_ms} ms</strong></span>
@@ -728,6 +875,215 @@ export function GovernancePage() {
                     <input type="number" value={dailyTokenQuota} onChange={e => setDailyTokenQuota(Number(e.target.value))} className="cs-input" style={{ height: '38px', fontSize: '13px' }} />
                     <span style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px', display: 'block' }}>{(dailyTokenQuota / 1000000).toFixed(1)}M tokens per 24 hours.</span>
                   </div>
+                </div>
+              </div>
+
+              <div style={{ padding: '16px', background: '#FFF7ED', borderRadius: '12px', border: '1px solid #FED7AA' }}>
+                <label style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                  <ShieldCheck size={14} style={{ color: '#C2410C' }} /> Presidio PII Detection
+                </label>
+                <p style={{ fontSize: '11.5px', color: '#7C2D12', lineHeight: 1.5, margin: '0 0 12px' }}>
+                  Scans prompts before routing and model responses before display. Detection is not complete coverage; configure only the entities your organization needs.
+                </p>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#334155', marginBottom: '12px' }}>
+                  <input type="checkbox" checked={piiEnabled} onChange={e => setPiiEnabled(e.target.checked)} />
+                  Enable PII detection
+                </label>
+                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                  <label style={{ fontSize: '12px', color: '#334155' }}><input type="checkbox" checked={piiScanInput} onChange={e => setPiiScanInput(e.target.checked)} /> Scan input</label>
+                  <label style={{ fontSize: '12px', color: '#334155' }}><input type="checkbox" checked={piiScanOutput} onChange={e => setPiiScanOutput(e.target.checked)} /> Scan output</label>
+                </div>
+
+                <div style={{ padding: '16px', background: '#FEF2F2', borderRadius: '12px', border: '1px solid #FECACA' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                    <AlertTriangle size={14} style={{ color: '#B91C1C' }} /> Local Toxicity Detection
+                  </label>
+                  <p style={{ fontSize: '11.5px', color: '#7F1D1D', lineHeight: 1.5, margin: '0 0 12px' }}>
+                    Detoxify scores harmful-language categories locally. Scores are probabilistic and may misclassify quotations, educational content, reclaimed language, or slang.
+                  </p>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#334155', marginBottom: '12px' }}>
+                    <input type="checkbox" checked={toxicityEnabled} onChange={e => setToxicityEnabled(e.target.checked)} />
+                    Enable toxicity detection
+                  </label>
+                  <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                    <label style={{ fontSize: '12px', color: '#334155' }}><input type="checkbox" checked={toxicityScanInput} onChange={e => setToxicityScanInput(e.target.checked)} /> Scan input</label>
+                    <label style={{ fontSize: '12px', color: '#334155' }}><input type="checkbox" checked={toxicityScanOutput} onChange={e => setToxicityScanOutput(e.target.checked)} /> Scan output</label>
+                  </div>
+
+                  <div style={{ padding: '16px', background: '#F5F3FF', borderRadius: '12px', border: '1px solid #DDD6FE' }}>
+                    <label style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                      <Lock size={14} style={{ color: '#6D28D9' }} /> Prompt Injection Detection
+                    </label>
+                    <p style={{ fontSize: '11.5px', color: '#5B21B6', lineHeight: 1.5, margin: '0 0 12px' }}>
+                      Uses a local classifier to detect attempts to override instructions, reveal hidden prompts, bypass safety rules, or manipulate model behavior. Detection is not an authorization or tool-permission boundary.
+                    </p>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#334155', marginBottom: '12px' }}>
+                      <input type="checkbox" checked={injectionEnabled} onChange={e => setInjectionEnabled(e.target.checked)} />
+                      Enable prompt injection detection
+                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <label style={{ display: 'block', fontSize: '11.5px', color: '#475569', fontWeight: 600 }}>
+                        Action
+                        <select value={injectionAction} onChange={e => setInjectionAction(e.target.value as 'ALLOW' | 'FLAG' | 'BLOCK' | 'REVIEW')} className="cs-input" style={{ display: 'block', height: '38px', marginTop: '4px', fontSize: '13px' }}>
+                          <option value="ALLOW">Allow and report</option>
+                          <option value="FLAG">Flag and continue</option>
+                          <option value="BLOCK">Block request</option>
+                          <option value="REVIEW">Require review (blocks pending review)</option>
+                        </select>
+                      </label>
+                      <label style={{ display: 'block', fontSize: '11.5px', color: '#475569', fontWeight: 600 }}>
+                        Detection threshold ({injectionThreshold.toFixed(2)})
+                        <input type="range" min="0" max="1" step="0.05" value={injectionThreshold} onChange={e => setInjectionThreshold(Number(e.target.value))} style={{ display: 'block', width: '100%', marginTop: '12px' }} />
+                      </label>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <label style={{ display: 'block', fontSize: '11.5px', color: '#475569', fontWeight: 600 }}>
+                      Action
+                      <select value={toxicityAction} onChange={e => setToxicityAction(e.target.value as 'ALLOW' | 'FLAG' | 'BLOCK' | 'REGENERATE')} className="cs-input" style={{ display: 'block', height: '38px', marginTop: '4px', fontSize: '13px' }}>
+                        <option value="ALLOW">Allow and report</option>
+                        <option value="FLAG">Flag and continue</option>
+                        <option value="BLOCK">Block request or response</option>
+                        <option value="REGENERATE">Regenerate response</option>
+                      </select>
+                    </label>
+                    <label style={{ display: 'block', fontSize: '11.5px', color: '#475569', fontWeight: 600 }}>
+                      Detection threshold ({toxicityThreshold.toFixed(2)})
+                      <input type="range" min="0" max="1" step="0.05" value={toxicityThreshold} onChange={e => setToxicityThreshold(Number(e.target.value))} style={{ display: 'block', width: '100%', marginTop: '12px' }} />
+                    </label>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
+                    {['toxicity', 'severe_toxicity', 'insult', 'threat', 'identity_hate', 'obscene', 'profanity'].map(category => {
+                      const selected = toxicityCategories.includes(category);
+                      return <label key={category} style={{ fontSize: '11px', color: '#475569' }}><input type="checkbox" checked={selected} onChange={() => setToxicityCategories(selected ? toxicityCategories.filter(value => value !== category) : [...toxicityCategories, category])} /> {category}</label>;
+                    })}
+                  </div>
+                </div>
+                <label style={{ display: 'block', fontSize: '11.5px', color: '#475569', fontWeight: 600, marginBottom: '6px' }}>
+                  Action
+                  <select value={piiAction} onChange={e => setPiiAction(e.target.value as 'ALLOW' | 'MASK' | 'BLOCK')} className="cs-input" style={{ display: 'block', height: '38px', marginTop: '4px', fontSize: '13px' }}>
+                    <option value="ALLOW">Allow and report</option>
+                    <option value="MASK">Mask detected values</option>
+                    <option value="BLOCK">Block request or response</option>
+                  </select>
+                </label>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
+                  {['EMAIL_ADDRESS', 'PHONE_NUMBER', 'PERSON', 'ADDRESS', 'IN_AADHAAR', 'IN_PAN'].map(entity => {
+                    const selected = piiEntities.includes(entity);
+                    return <label key={entity} style={{ fontSize: '11px', color: '#475569' }}><input type="checkbox" checked={selected} onChange={() => setPiiEntities(selected ? piiEntities.filter(value => value !== entity) : [...piiEntities, entity])} /> {entity}</label>;
+                  })}
+                </div>
+              </div>
+              <div style={{ padding: '16px', background: '#EFF6FF', borderRadius: '12px', border: '1px solid #BFDBFE' }}>
+                <label style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                  <AlertCircle size={14} style={{ color: '#2563EB' }} /> Evidence-grounded Hallucination Detection
+                </label>
+                <p style={{ fontSize: '11.5px', color: '#1E40AF', lineHeight: 1.5, margin: '0 0 12px' }}>
+                  Verifies output only against trusted reference context supplied with the request. Without evidence, results are reported as insufficient rather than treated as false or correct.
+                </p>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#334155', marginBottom: '12px' }}>
+                  <input type="checkbox" checked={hallucinationEnabled} onChange={e => setHallucinationEnabled(e.target.checked)} />
+                  Enable hallucination detection
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '11.5px', color: '#475569', fontWeight: 600 }}>
+                    Verification provider
+                    <select value={hallucinationProvider} onChange={e => setHallucinationProvider(e.target.value)} className="cs-input" style={{ display: 'block', height: '38px', marginTop: '4px', fontSize: '13px' }}>
+                      <option value="limited_evidence">Limited evidence (local)</option>
+                    </select>
+                  </label>
+                  <label style={{ display: 'block', fontSize: '11.5px', color: '#475569', fontWeight: 600 }}>
+                    Action
+                    <select value={hallucinationAction} onChange={e => setHallucinationAction(e.target.value as typeof hallucinationAction)} className="cs-input" style={{ display: 'block', height: '38px', marginTop: '4px', fontSize: '13px' }}>
+                      <option value="ALLOW">Allow and report</option>
+                      <option value="FLAG">Flag and continue</option>
+                      <option value="BLOCK">Block response</option>
+                      <option value="REVIEW">Require review (blocks pending queue)</option>
+                      <option value="REGENERATE">Regenerate once</option>
+                    </select>
+                  </label>
+                  <label style={{ display: 'block', fontSize: '11.5px', color: '#475569', fontWeight: 600 }}>
+                    Confidence threshold ({hallucinationThreshold.toFixed(2)})
+                    <input type="range" min="0" max="1" step="0.05" value={hallucinationThreshold} onChange={e => setHallucinationThreshold(Number(e.target.value))} style={{ display: 'block', width: '100%', marginTop: '12px' }} />
+                  </label>
+                  <label style={{ display: 'block', fontSize: '11.5px', color: '#475569', fontWeight: 600 }}>
+                    Provider failure behavior
+                    <select value={hallucinationFailureMode} onChange={e => setHallucinationFailureMode(e.target.value as typeof hallucinationFailureMode)} className="cs-input" style={{ display: 'block', height: '38px', marginTop: '4px', fontSize: '13px' }}>
+                      <option value="BLOCK">Block safely</option>
+                      <option value="REVIEW">Require review</option>
+                      <option value="ALLOW">Allow with warning</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <div style={{ padding: '16px', background: '#F0FDFA', borderRadius: '12px', border: '1px solid #99F6E4' }}>
+                <label style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                  <Sliders size={14} style={{ color: '#0F766E' }} /> Conciseness Detection
+                </label>
+                <p style={{ fontSize: '11.5px', color: '#115E59', lineHeight: 1.5, margin: '0 0 12px' }}>
+                  Checks response size, sentence count, and exact repeated sentences. Explicit short, medium, or long requests take precedence over the default preference.
+                </p>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#334155', marginBottom: '12px' }}>
+                  <input type="checkbox" checked={concisenessEnabled} onChange={e => setConcisenessEnabled(e.target.checked)} />
+                  Enable conciseness detection
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                  <label style={{ fontSize: '11.5px', color: '#475569', fontWeight: 600 }}>Max words
+                    <input type="number" min="1" value={concisenessMaxWords} onChange={e => setConcisenessMaxWords(Number(e.target.value))} className="cs-input" style={{ display: 'block', height: '38px', marginTop: '4px', fontSize: '13px' }} />
+                  </label>
+                  <label style={{ fontSize: '11.5px', color: '#475569', fontWeight: 600 }}>Max characters
+                    <input type="number" min="1" value={concisenessMaxCharacters} onChange={e => setConcisenessMaxCharacters(Number(e.target.value))} className="cs-input" style={{ display: 'block', height: '38px', marginTop: '4px', fontSize: '13px' }} />
+                  </label>
+                  <label style={{ fontSize: '11.5px', color: '#475569', fontWeight: 600 }}>Max sentences
+                    <input type="number" min="1" value={concisenessMaxSentences} onChange={e => setConcisenessMaxSentences(Number(e.target.value))} className="cs-input" style={{ display: 'block', height: '38px', marginTop: '4px', fontSize: '13px' }} />
+                  </label>
+                  <label style={{ fontSize: '11.5px', color: '#475569', fontWeight: 600 }}>Default response length
+                    <select value={concisenessLength} onChange={e => setConcisenessLength(e.target.value as typeof concisenessLength)} className="cs-input" style={{ display: 'block', height: '38px', marginTop: '4px', fontSize: '13px' }}>
+                      <option value="SHORT">Short</option><option value="MEDIUM">Medium</option><option value="LONG">Long</option>
+                    </select>
+                  </label>
+                  <label style={{ fontSize: '11.5px', color: '#475569', fontWeight: 600 }}>Action
+                    <select value={concisenessAction} onChange={e => setConcisenessAction(e.target.value as typeof concisenessAction)} className="cs-input" style={{ display: 'block', height: '38px', marginTop: '4px', fontSize: '13px' }}>
+                      <option value="ALLOW">Allow and report</option><option value="FLAG">Flag and continue</option><option value="BLOCK">Block response</option><option value="REVIEW">Require review</option><option value="REGENERATE">Regenerate once</option>
+                    </select>
+                  </label>
+                  <label style={{ fontSize: '11.5px', color: '#475569', fontWeight: 600 }}>Failure behavior
+                    <select value={concisenessFailureMode} onChange={e => setConcisenessFailureMode(e.target.value as typeof concisenessFailureMode)} className="cs-input" style={{ display: 'block', height: '38px', marginTop: '4px', fontSize: '13px' }}>
+                      <option value="BLOCK">Block safely</option><option value="REVIEW">Require review</option><option value="ALLOW">Allow with warning</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <div style={{ padding: '16px', background: '#FFF7ED', borderRadius: '12px', border: '1px solid #FED7AA' }}>
+                <label style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                  <ShieldCheck size={14} style={{ color: '#C2410C' }} /> Racial Bias Detection
+                </label>
+                <p style={{ fontSize: '11.5px', color: '#7C2D12', lineHeight: 1.5, margin: '0 0 12px' }}>
+                  Flags potential stereotypes, unsupported generalizations, superiority claims, and unjustified differential treatment. Educational, historical, quoted, and anti-discrimination discussion is handled conservatively.
+                </p>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#334155', marginBottom: '12px' }}>
+                  <input type="checkbox" checked={racialBiasEnabled} onChange={e => setRacialBiasEnabled(e.target.checked)} />
+                  Enable racial bias detection
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                  <label style={{ fontSize: '11.5px', color: '#475569', fontWeight: 600 }}>Detection provider
+                    <select value={racialBiasProvider} onChange={e => setRacialBiasProvider(e.target.value)} className="cs-input" style={{ display: 'block', height: '38px', marginTop: '4px', fontSize: '13px' }}>
+                      <option value="conservative_baseline">Conservative local baseline</option>
+                    </select>
+                  </label>
+                  <label style={{ fontSize: '11.5px', color: '#475569', fontWeight: 600 }}>Action
+                    <select value={racialBiasAction} onChange={e => setRacialBiasAction(e.target.value as typeof racialBiasAction)} className="cs-input" style={{ display: 'block', height: '38px', marginTop: '4px', fontSize: '13px' }}>
+                      <option value="ALLOW">Allow and report</option><option value="FLAG">Flag and continue</option><option value="BLOCK">Block response</option><option value="REVIEW">Require review</option><option value="REGENERATE">Regenerate once</option>
+                    </select>
+                  </label>
+                  <label style={{ fontSize: '11.5px', color: '#475569', fontWeight: 600 }}>Confidence threshold ({racialBiasThreshold.toFixed(2)})
+                    <input type="range" min="0" max="1" step="0.05" value={racialBiasThreshold} onChange={e => setRacialBiasThreshold(Number(e.target.value))} style={{ display: 'block', width: '100%', marginTop: '12px' }} />
+                  </label>
+                  <label style={{ fontSize: '11.5px', color: '#475569', fontWeight: 600 }}>Provider failure behavior
+                    <select value={racialBiasFailureMode} onChange={e => setRacialBiasFailureMode(e.target.value as typeof racialBiasFailureMode)} className="cs-input" style={{ display: 'block', height: '38px', marginTop: '4px', fontSize: '13px' }}>
+                      <option value="BLOCK">Block safely</option><option value="REVIEW">Require review</option><option value="ALLOW">Allow with warning</option>
+                    </select>
+                  </label>
                 </div>
               </div>
 

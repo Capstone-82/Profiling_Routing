@@ -1,0 +1,61 @@
+{
+  "models": [
+    {
+      "router_model_id": "gemini-2.5-flash",
+      "model_id": "gemini-2.5-flash",
+      "name": "Gemini 2.5 Flash",
+      "provider": "Google",
+      "tier": "T2",
+      "cost_in": 0.3,
+      "cost_out": 2.5,
+      "max_input_tokens": 1048576,
+      "max_output_tokens": 65536,
+      "total_context_tokens": 1048576,
+      "reasoning_mode": true,
+      "domain_strengths": ["coding", "structured_analysis", "classification", "multimodal"],
+      "capabilities": ["text_generation", "multimodal", "reasoning", "streaming"],
+      "context_window": "1M tokens",
+      "input_modalities": ["TEXT", "IMAGE", "AUDIO", "VIDEO"],
+      "output_modalities": ["TEXT"],
+      "streaming_support": true
+    },
+    {
+      "router_model_id": "gemini-2.5-pro",
+      "model_id": "gemini-2.5-pro",
+      "name": "Gemini 2.5 Pro",
+      "provider": "Google",
+      "tier": "T3",
+      "cost_in": 1.25,
+      "cost_out": 10.0,
+      "max_input_tokens": 1048576,
+      "max_output_tokens": 65536,
+      "total_context_tokens": 1048576,
+      "reasoning_mode": true,
+      "domain_strengths": ["complex_coding", "reasoning", "system_design", "structured_analysis"],
+      "capabilities": ["text_generation", "multimodal", "reasoning", "streaming"],
+      "context_window": "1M tokens",
+      "input_modalities": ["TEXT", "IMAGE", "AUDIO", "VIDEO"],
+      "output_modalities": ["TEXT"],
+      "streaming_support": true
+    },
+    {
+      "router_model_id": "gemini-2.0-flash-001",
+      "model_id": "gemini-2.0-flash-001",
+      "name": "Gemini 2.0 Flash",
+      "provider": "Google",
+      "tier": "T1",
+      "cost_in": 0.1,
+      "cost_out": 0.4,
+      "max_input_tokens": 1048576,
+      "max_output_tokens": 8192,
+      "total_context_tokens": 1048576,
+      "reasoning_mode": false,
+      "domain_strengths": ["classification", "factual_lookup", "short_summarisation", "high_volume"],
+      "capabilities": ["text_generation", "multimodal", "streaming"],
+      "context_window": "1M tokens",
+      "input_modalities": ["TEXT", "IMAGE", "AUDIO", "VIDEO"],
+      "output_modalities": ["TEXT"],
+      "streaming_support": true
+    }
+  ]
+}

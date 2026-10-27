@@ -152,7 +152,7 @@ function humanizeAuthError(msg: string): string {
 
 // ─── LOGIN FORM ───────────────────────────────────────────────────────────────
 export function LoginForm() {
-  const { signIn } = useAuth();
+  const { signIn, loginAsDemo } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -174,6 +174,11 @@ export function LoginForm() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDemoSignIn = () => {
+    loginAsDemo(email.trim() || 'demo@corestack.io');
+    navigate('/connections');
   };
 
   return (
@@ -212,6 +217,35 @@ export function LoginForm() {
             <>SIGN IN <ArrowRight size={16} /></>
           )}
         </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '4px 0' }}>
+          <div style={{ flex: 1, height: '1px', background: '#E2E8F0' }} />
+          <span style={{ fontSize: '11.5px', color: '#94A3B8', fontWeight: 700 }}>OR</span>
+          <div style={{ flex: 1, height: '1px', background: '#E2E8F0' }} />
+        </div>
+
+        <button
+          type="button"
+          onClick={handleDemoSignIn}
+          style={{
+            width: '100%',
+            padding: '11px 16px',
+            background: '#F8FAFC',
+            border: '1px solid #CBD5E1',
+            borderRadius: '8px',
+            fontSize: '13.5px',
+            fontWeight: 600,
+            color: '#0066FF',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          Continue in Demo Mode →
+        </button>
       </form>
 
       <p style={{ marginTop: '24px', textAlign: 'center', fontSize: '13.5px', color: '#5C728D' }}>
@@ -228,7 +262,7 @@ export function LoginForm() {
 
 // ─── SIGN UP FORM ─────────────────────────────────────────────────────────────
 export function SignupForm() {
-  const { signUp } = useAuth();
+  const { signUp, loginAsDemo } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -239,6 +273,11 @@ export function SignupForm() {
 
   const confirmError = confirm && confirm !== password ? 'Passwords do not match.' : '';
   const isValid = email && password.length >= 6 && password === confirm;
+
+  const handleDemoSignIn = () => {
+    loginAsDemo(email.trim() || 'demo@corestack.io');
+    navigate('/connections');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -325,6 +364,35 @@ export function SignupForm() {
           style={{ width: '100%' }}
         >
           {loading ? <><div className="cs-spinner" style={{ width: '16px', height: '16px' }} /> Creating account…</> : <>CREATE ACCOUNT <ArrowRight size={16} /></>}
+        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '4px 0' }}>
+          <div style={{ flex: 1, height: '1px', background: '#E2E8F0' }} />
+          <span style={{ fontSize: '11.5px', color: '#94A3B8', fontWeight: 700 }}>OR</span>
+          <div style={{ flex: 1, height: '1px', background: '#E2E8F0' }} />
+        </div>
+
+        <button
+          type="button"
+          onClick={handleDemoSignIn}
+          style={{
+            width: '100%',
+            padding: '11px 16px',
+            background: '#F8FAFC',
+            border: '1px solid #CBD5E1',
+            borderRadius: '8px',
+            fontSize: '13.5px',
+            fontWeight: 600,
+            color: '#0066FF',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          Continue in Demo Mode →
         </button>
       </form>
 

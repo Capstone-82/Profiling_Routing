@@ -6,6 +6,9 @@ from app.config import settings
 from app.routes.connection import router as connection_router
 from app.routes.prompt import router as prompt_router
 from app.routes.governance import router as governance_router
+# GCP/Vertex AI integration is intentionally paused. Keep the implementation
+# in app/routes/gcp.py and app/services/gcp/ for re-enablement when a GCP
+# account is available, but do not expose those routes in the current phase.
 from app.services.routing_service import routing_service
 
 logging.basicConfig(level=logging.INFO)
@@ -43,6 +46,7 @@ app.add_middleware(
 app.include_router(connection_router)
 app.include_router(prompt_router)
 app.include_router(governance_router)
+# GCP router intentionally disabled; see the comment above.
 
 @app.get("/health")
 async def health_check():
@@ -50,7 +54,7 @@ async def health_check():
         "status": "ok",
         "service": "backend",
         "version": "0.2.0",
-        "routing_ready": routing_service.is_initialized
+        "routing_ready": routing_service.is_initialized,
     }
 
 @app.get("/cloudformation/template.yaml")
