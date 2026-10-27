@@ -58,19 +58,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isDemo, setIsDemo] = useState(false);
 
   useEffect(() => {
-    // Isolated dev mock check
-    if (isDevMockEnabled) {
-      const demoStr = localStorage.getItem(DEMO_STORAGE_KEY);
-      if (demoStr) {
-        try {
-          setUser(JSON.parse(demoStr));
-          setIsDemo(true);
-        } catch {
-          localStorage.removeItem(DEMO_STORAGE_KEY);
-        }
+    // Check saved demo user session first
+    const demoStr = localStorage.getItem(DEMO_STORAGE_KEY);
+    if (demoStr) {
+      try {
+        setUser(JSON.parse(demoStr));
+        setIsDemo(true);
+        setLoading(false);
+        return;
+      } catch {
+        localStorage.removeItem(DEMO_STORAGE_KEY);
       }
-      setLoading(false);
-      return;
     }
 
     if (!isSupabaseConfigured) {
@@ -79,18 +77,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Real Supabase session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser({ id: session.user.id, email: session.user.email!, createdAt: session.user.created_at });
-      }
-      setLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (data?.session?.user) {
+          setUser({
+            id: data.session.user.id,
+            email: data.session.user.email!,
+            createdAt: data.session.user.created_at,
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn('Supabase getSession network error:', err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setUser({ id: session.user.id, email: session.user.email!, createdAt: session.user.created_at });
         setIsDemo(false);
-      } else {
+      } else if (!localStorage.getItem(DEMO_STORAGE_KEY)) {
         setUser(null);
       }
     });

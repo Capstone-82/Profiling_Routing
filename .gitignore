@@ -10,6 +10,12 @@ __pycache__/
 .env.*
 !.env.example
 
+# Google Cloud local credentials (keep outside the repository)
+service-account*.json
+*-service-account.json
+gcp-credentials*.json
+backend/secrets/
+
 # Build outputs
 frontend/dist/
 frontend/.vite/

@@ -16,6 +16,17 @@ export interface Connection {
   error?: string;
   availableModels?: Model[];
   verifiedAt?: string;
+  lastSyncedAt?: string;
+  cloudProvider?: string;
+  projectId?: string;
+  projectNumber?: string;
+  region?: string;
+}
+
+export interface GCPProject {
+  projectId: string;
+  displayName?: string;
+  projectNumber?: string;
 }
 
 // ─── Models ──────────────────────────────────────
@@ -26,6 +37,11 @@ export interface Model {
   providerModelId: string; // e.g. "anthropic.claude-3-5-sonnet-20241022-v2:0"
   contextWindow?: string;
   category?: string;
+  contextWindowTokens?: number;
+  capabilities?: string[];
+  cloudProvider?: string;
+  region?: string;
+  routerModelId?: string;
 }
 
 // ─── Governance & Routing Metadata ────────────────
@@ -71,6 +87,9 @@ export interface ModelRecommendation {
   domain_match_count: number;
   reasons: string[];
   routing_score?: number;
+  cloud_provider?: string;
+  provider_model_id?: string;
+  region?: string;
 }
 
 export interface UserGuess {
@@ -84,8 +103,12 @@ export interface UserGuess {
 export interface PromptRequest {
   prompt: string;
   guessed_bedrock_model_id?: string;
+  guessed_model_id?: string;
   max_tokens?: number;
   retry_bedrock_model_id?: string;
+  retry_model_id?: string;
+  reference_context?: string[];
+  requested_response_length?: 'SHORT' | 'MEDIUM' | 'LONG';
 }
 
 export interface ModelResponse {
@@ -100,4 +123,76 @@ export interface ModelResponse {
   invocation_error?: string | null;
   tokens_used?: number;
   latency_ms?: number;
+  pii_input_findings?: PIIFinding[];
+  pii_output_findings?: PIIFinding[];
+  pii_input_masked?: boolean;
+  pii_output_masked?: boolean;
+  toxicity_input_findings?: ToxicityFinding[];
+  toxicity_output_findings?: ToxicityFinding[];
+  toxicity_input_action?: string | null;
+  toxicity_output_action?: string | null;
+  prompt_injection_input_findings?: PromptInjectionFinding[];
+  prompt_injection_input_action?: string | null;
+  hallucination_status?: string | null;
+  hallucination_confidence?: number | null;
+  hallucination_explanation?: string | null;
+  hallucination_findings?: HallucinationFinding[];
+  hallucination_action?: string | null;
+  conciseness_word_count?: number | null;
+  conciseness_character_count?: number | null;
+  conciseness_sentence_count?: number | null;
+  conciseness_repetition_ratio?: number | null;
+  conciseness_requested_length?: string | null;
+  conciseness_findings?: ConcisenessFinding[];
+  conciseness_action?: string | null;
+  racial_bias_status?: string | null;
+  racial_bias_confidence?: number | null;
+  racial_bias_explanation?: string | null;
+  racial_bias_findings?: RacialBiasFinding[];
+  racial_bias_action?: string | null;
+}
+
+export interface PIIFinding {
+  entity_type: string;
+  count: number;
+  max_score: number;
+}
+
+export interface ToxicityFinding {
+  category: string;
+  score: number;
+  count: number;
+}
+
+export interface PromptInjectionFinding {
+  category: string;
+  score: number;
+  label: string;
+}
+
+export interface HallucinationFinding {
+  claim: string;
+  status: string;
+  confidence: number;
+  explanation: string;
+}
+
+export interface HallucinationVerification {
+  status: string;
+  confidence: number;
+  explanation: string;
+  findings: HallucinationFinding[];
+}
+
+export interface ConcisenessFinding {
+  code: string;
+  message: string;
+  actual?: number | null;
+  allowed?: number | null;
+}
+
+export interface RacialBiasFinding {
+  category: string;
+  confidence: number;
+  explanation: string;
 }

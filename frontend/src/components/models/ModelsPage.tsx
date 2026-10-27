@@ -6,7 +6,7 @@ import type { Model } from '../../types';
 import { getAvailableModels } from '../../services/mock/mockService';
 import {
   Layers, Search,
-  Tag, Activity, Shield
+  Tag, Activity, Shield, Cloud
 } from 'lucide-react';
 
 // Simple abstract brand-colored marks (not official logos) used as clickable provider filters.
@@ -44,6 +44,8 @@ function ProviderIcon({ provider, size = 26 }: { provider: string; size?: number
         </svg>
       );
     }
+    case 'Google':
+      return <Cloud {...common} fill="none" stroke="currentColor" strokeWidth="2" />;
     default:
       return <Layers size={size} />;
   }
@@ -75,18 +77,18 @@ export function ModelsPage() {
   });
 
 
-  const providers = ['all', 'Anthropic', 'Amazon', 'Meta', 'Mistral'];
+  const providers = ['all', 'Anthropic', 'Amazon', 'Meta', 'Mistral', 'Google'];
   const PROVIDER_COLOR: Record<string, string> = {
     Anthropic: '#D97706',
     Amazon: '#FF9900',
     Meta: '#0668E1',
     Mistral: '#FF7000',
   };
-  const groups = ['Anthropic', 'Amazon', 'Meta', 'Mistral']
+  const groups = ['Anthropic', 'Amazon', 'Meta', 'Mistral', 'Google']
     .map(provider => ({ provider, items: filtered.filter(m => m.provider === provider) }))
     .filter(g => g.items.length > 0);
   // Anything from a provider outside the known four still shows up, grouped by its own name.
-  const knownProviders = new Set(['Anthropic', 'Amazon', 'Meta', 'Mistral']);
+  const knownProviders = new Set(['Anthropic', 'Amazon', 'Meta', 'Mistral', 'Google']);
   const otherProviders = Array.from(new Set(filtered.map(m => m.provider).filter(p => !knownProviders.has(p))));
   for (const provider of otherProviders) {
     groups.push({ provider, items: filtered.filter(m => m.provider === provider) });

@@ -1,5 +1,6 @@
 import time
 import datetime
+import uuid
 from typing import List, Dict, Optional, Any, Tuple
 from pydantic import BaseModel, Field
 import httpx
@@ -8,9 +9,11 @@ from app.config import settings
 from app.services.supabase_service import ensure_uuid, get_supabase_headers
 from app.services.routing.router import count_input_tokens
 from app.services.model_mapping_service import model_mapping_service
+# Vertex AI governance entries are retained for the paused GCP phase.
 
 class GovernanceRuleConfig(BaseModel):
-    # allow_list -- stores actual Bedrock provider model IDs, not internal friendly/router IDs
+    # allow_list -- stores provider model IDs and may include legacy Bedrock IDs
+    allowed_model_ids: Optional[List[str]] = None
     allowed_bedrock_model_ids: Optional[List[str]] = None
     
     # context_window
@@ -48,7 +51,10 @@ class GovernanceResult(BaseModel):
     blocked_by_enforce: bool
     evaluations: List[GovernanceEvaluation]
     allowed_bedrock_model_ids: Optional[List[str]] = None
+    allowed_model_ids: Optional[List[str]] = None
     estimated_input_tokens: int = 0
+    pii_config: Optional[Dict[str, Any]] = None
+    toxicity_config: Optional[Dict[str, Any]] = None
 
 
 # In-memory throttle tracker for rate/volume limits per org
@@ -127,7 +133,10 @@ DEFAULT_GOVERNANCE_RULES = [
             # narrows it down in Governance. Real Bedrock IDs, not internal friendly/router IDs.
             "allowed_bedrock_model_ids": [
                 m.providerModelId for m in model_mapping_service.get_allowed_catalog()
-            ]
+            ],
+            "allowed_model_ids": [
+                *[m.providerModelId for m in model_mapping_service.get_allowed_catalog()],
+            ],
         }
     }
 ]
@@ -173,9 +182,53 @@ class GovernanceService:
         ORG_RULES_CACHE[clean_org_id] = default_rules
         return default_rules
 
+    async def get_pii_config(self, org_id: str) -> Dict[str, Any]:
+        """Return the tenant PII policy; disabled by default until configured."""
+        for rule in await self.get_rules_for_org(org_id):
+            if rule.rule_type == "pii":
+                return dict(rule.config or {})
+        return {"enabled": False}
+
+    async def get_toxicity_config(self, org_id: str) -> Dict[str, Any]:
+        """Return the tenant toxicity policy; disabled by default."""
+        for rule in await self.get_rules_for_org(org_id):
+            if rule.rule_type == "toxicity":
+                return dict(rule.config or {})
+        return {"enabled": False}
+
+    async def get_prompt_injection_config(self, org_id: str) -> Dict[str, Any]:
+        """Return the tenant prompt-injection policy; disabled by default."""
+        for rule in await self.get_rules_for_org(org_id):
+            if rule.rule_type == "prompt_injection":
+                return dict(rule.config or {})
+        return {"enabled": False}
+
+    async def get_hallucination_config(self, org_id: str) -> Dict[str, Any]:
+        """Return the tenant hallucination policy; disabled by default."""
+        for rule in await self.get_rules_for_org(org_id):
+            if rule.rule_type == "hallucination":
+                return dict(rule.config or {})
+        return {"enabled": False}
+
+    async def get_conciseness_config(self, org_id: str) -> Dict[str, Any]:
+        """Return the tenant conciseness policy; disabled by default."""
+        for rule in await self.get_rules_for_org(org_id):
+            if rule.rule_type == "conciseness":
+                return dict(rule.config or {})
+        return {"enabled": False}
+
+    async def get_racial_bias_config(self, org_id: str) -> Dict[str, Any]:
+        """Return the tenant racial-bias policy; disabled by default."""
+        for rule in await self.get_rules_for_org(org_id):
+            if rule.rule_type == "racial_bias":
+                return dict(rule.config or {})
+        return {"enabled": False}
+
     async def save_rule(self, rule: GovernanceRule) -> GovernanceRule:
         clean_org_id = ensure_uuid(rule.org_id)
         rule.org_id = clean_org_id
+        if not rule.id:
+            rule.id = str(uuid.uuid4())
         
         # Update cache
         existing = await self.get_rules_for_org(clean_org_id)
@@ -205,6 +258,27 @@ class GovernanceService:
 
         return rule
 
+    async def delete_rule(self, rule_id: str, org_id: str) -> bool:
+        clean_org_id = ensure_uuid(org_id)
+        existing = await self.get_rules_for_org(clean_org_id)
+        remaining = [rule for rule in existing if rule.id != rule_id]
+        if len(remaining) == len(existing):
+            return False
+        ORG_RULES_CACHE[clean_org_id] = remaining
+
+        if settings.SUPABASE_URL and (settings.SUPABASE_ANON_KEY or settings.SUPABASE_SERVICE_ROLE_KEY):
+            url = (
+                f"{settings.SUPABASE_URL}/rest/v1/governance_rules"
+                f"?id=eq.{rule_id}&org_id=eq.{clean_org_id}"
+            )
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.delete(url, headers=get_supabase_headers(), timeout=4.0)
+                    response.raise_for_status()
+            except httpx.HTTPError as error:
+                raise RuntimeError("Unable to delete the governance rule from Supabase.") from error
+        return True
+
     async def evaluate_prompt(
         self,
         org_id: str,
@@ -223,6 +297,7 @@ class GovernanceService:
         evaluations: List[GovernanceEvaluation] = []
         blocked_by_enforce = False
         allowed_bedrock_ids_result: Optional[List[str]] = None
+        allowed_model_ids_result: Optional[List[str]] = None
 
         for rule in rules:
             cfg = rule.config or {}
@@ -288,8 +363,11 @@ class GovernanceService:
                 ))
 
             elif rule.rule_type == "allow_list":
-                allowed = cfg.get("allowed_bedrock_model_ids", [])
-                allowed_bedrock_ids_result = allowed
+                allowed = cfg.get("allowed_model_ids")
+                if allowed is None:
+                    allowed = cfg.get("allowed_bedrock_model_ids", [])
+                allowed_model_ids_result = allowed
+                allowed_bedrock_ids_result = cfg.get("allowed_bedrock_model_ids", allowed)
                 passed = True
                 msg = f"Allow-list policy active ({len(allowed)} models permitted)."
 
@@ -307,6 +385,19 @@ class GovernanceService:
                     message=msg,
                     details={"allowed_count": len(allowed)}
                 ))
+            elif rule.rule_type == "pii":
+                evaluations.append(GovernanceEvaluation(
+                    rule_type="pii",
+                    passed=True,
+                    mode=mode,
+                    message="PII scanning policy configured; input and output scans run at the routing boundary.",
+                    details={
+                        "enabled": bool(cfg.get("enabled", False)),
+                        "scan_input": bool(cfg.get("scan_input", True)),
+                        "scan_output": bool(cfg.get("scan_output", True)),
+                        "action": str(cfg.get("action", "BLOCK")).upper(),
+                    },
+                ))
 
         overall_passed = not blocked_by_enforce
 
@@ -315,7 +406,9 @@ class GovernanceService:
             blocked_by_enforce=blocked_by_enforce,
             evaluations=evaluations,
             allowed_bedrock_model_ids=allowed_bedrock_ids_result,
+            allowed_model_ids=allowed_model_ids_result or allowed_bedrock_ids_result,
             estimated_input_tokens=est_tokens
+            ,pii_config=next((dict(r.config or {}) for r in rules if r.rule_type == "pii"), {"enabled": False})
         )
 
     def record_request_attempt(self, org_id: str, tokens: int = 0) -> None:

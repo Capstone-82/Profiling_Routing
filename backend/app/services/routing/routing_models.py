@@ -41,6 +41,9 @@ class ModelCandidate:
     capability_tags: List[str] = field(default_factory=list)
     latency_slo_ms: Optional[int] = None
     availability_status: str = "unknown"
+    cloud_provider: str = "aws-bedrock"
+    region: Optional[str] = None
+    display_name: Optional[str] = None
 
 @dataclass
 class ModelRecommendation:
@@ -53,6 +56,10 @@ class ModelRecommendation:
     reasons: List[str]              # Human-readable: why this model
     routing_score: Optional[float] = None
     score_breakdown: Dict[str, float] = field(default_factory=dict)
+    cloud_provider: str = "aws-bedrock"
+    api_model_id: Optional[str] = None
+    region: Optional[str] = None
+    display_name: Optional[str] = None
 
 @dataclass
 class RoutingResult:

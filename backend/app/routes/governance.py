@@ -1,5 +1,6 @@
-from typing import List, Optional
-from fastapi import APIRouter, Header, HTTPException
+from typing import List
+from fastapi import APIRouter, Depends, HTTPException
+from app.auth.supabase_auth import CurrentUser, get_current_user
 
 from app.schemas import GovernanceRuleSchema
 from app.services.governance_service import (
@@ -11,9 +12,9 @@ from app.services.governance_service import (
 router = APIRouter(prefix="/api/governance", tags=["Governance Rules"])
 
 @router.get("/rules", response_model=List[GovernanceRuleSchema])
-async def get_rules(x_user_id: Optional[str] = Header(None, alias="X-User-ID")):
+async def get_rules(current_user: CurrentUser = Depends(get_current_user)):
     """Get all configured governance rules for the user/organization."""
-    user_id = x_user_id or "demo-user-uuid"
+    user_id = current_user.organization_id
     rules = await governance_service.get_rules_for_org(user_id)
     return [
         GovernanceRuleSchema(
@@ -30,10 +31,10 @@ async def get_rules(x_user_id: Optional[str] = Header(None, alias="X-User-ID")):
 @router.post("/rules", response_model=GovernanceRuleSchema)
 async def create_or_update_rule(
     rule_req: GovernanceRuleSchema,
-    x_user_id: Optional[str] = Header(None, alias="X-User-ID")
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Upsert a governance rule (allow_list, throttle, context_window)."""
-    user_id = rule_req.org_id or x_user_id or "demo-user-uuid"
+    user_id = current_user.organization_id
     rule = GovernanceRule(
         id=rule_req.id,
         org_id=user_id,
@@ -53,6 +54,45 @@ async def create_or_update_rule(
         config=saved.config,
         mode=saved.mode
     )
+
+
+@router.put("/rules/{rule_id}", response_model=GovernanceRuleSchema)
+async def update_rule(
+    rule_id: str,
+    rule_req: GovernanceRuleSchema,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """Update one governance rule without allowing the caller to change its tenant."""
+    rule = GovernanceRule(
+        id=rule_id,
+        org_id=current_user.organization_id,
+        rule_type=rule_req.rule_type,
+        scope=rule_req.scope,
+        scope_target=rule_req.scope_target,
+        config=rule_req.config,
+        mode=rule_req.mode,
+    )
+    saved = await governance_service.save_rule(rule)
+    return GovernanceRuleSchema(
+        id=saved.id,
+        org_id=saved.org_id,
+        rule_type=saved.rule_type,
+        scope=saved.scope,
+        scope_target=saved.scope_target,
+        config=saved.config,
+        mode=saved.mode,
+    )
+
+
+@router.delete("/rules/{rule_id}", status_code=204)
+async def delete_rule(
+    rule_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """Delete one governance rule belonging to the authenticated organization."""
+    deleted = await governance_service.delete_rule(rule_id, current_user.organization_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Governance rule not found.")
 
 @router.get("/defaults", response_model=List[GovernanceRuleSchema])
 async def get_default_rules():

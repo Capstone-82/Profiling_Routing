@@ -27,7 +27,7 @@ export function Footer() {
               Accelerate Innovation with Multi-Provider AI Governance
             </h3>
             <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '13px', marginTop: '4px', margin: 0 }}>
-              Unify AWS Bedrock, Google Vertex AI, and Azure AI Foundry under continuous compliance.
+              Govern AWS Bedrock foundation models under continuous compliance.
             </p>
           </div>
           <div style={{ display: 'flex', gap: '12px' }}>

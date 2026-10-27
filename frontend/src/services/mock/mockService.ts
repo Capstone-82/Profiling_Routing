@@ -5,6 +5,11 @@ import {
   resetConnectionViaBackend,
   fetchAllowedCatalog,
   sendPromptToBackend,
+  fetchGCPConnectionFromBackend,
+  testGCPConnectionViaBackend,
+  resetGCPConnectionViaBackend,
+  startGCPAuthorization,
+  fetchGCPProjectsFromBackend,
 } from '../apiService';
 
 // ─── Maintained Hardcoded Allowed Bedrock Models Catalog ───────────────────────
@@ -181,10 +186,40 @@ export async function resetConnection(userId?: string): Promise<void> {
   localStorage.removeItem('cs_bedrock_connection');
 }
 
+// GCP/Vertex AI service wrappers are retained but intentionally unused while
+// the GCP integration is on hold. Reconnect these to the UI when an account is available.
+export async function getGCPConnection(userId?: string): Promise<Connection> {
+  return (await fetchGCPConnectionFromBackend(userId)) || {
+    provider: 'vertex-ai',
+    status: 'not_connected',
+  };
+}
+
+export async function testGCPConnection(projectId: string, region: string, userId?: string): Promise<Connection> {
+  return (await testGCPConnectionViaBackend(projectId, region, userId)) || {
+    provider: 'vertex-ai',
+    status: 'failed',
+    projectId,
+    region,
+    error: 'Unable to reach the backend. No Vertex AI connection was verified.',
+  };
+}
+
+export async function connectGCP(projectId?: string, region?: string): Promise<{ authorizationUrl: string }> {
+  return startGCPAuthorization(projectId, region);
+}
+
+export async function getGCPProjects(userId?: string) {
+  return fetchGCPProjectsFromBackend(userId);
+}
+
+export async function resetGCPConnection(userId?: string): Promise<void> {
+  await resetGCPConnectionViaBackend(userId).catch(() => {});
+}
+
 // ─── Real Prompt Router (no offline fallback -- fails honestly if the backend is unreachable) ──
 
 export async function sendPrompt(request: PromptRequest, userId?: string): Promise<ModelResponse> {
   if (!request.prompt.trim()) throw new Error('Prompt cannot be empty');
   return await sendPromptToBackend(request, userId);
 }
-

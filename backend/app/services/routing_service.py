@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
-from app.services.routing.routing_models import PromptProfile, RoutingResult, ModelRecommendation
+from app.services.routing.routing_models import PromptProfile, RoutingResult, ModelRecommendation, ModelCandidate
 from app.services.routing.features import complexity_score_from_dims, tier_from_score
 
 logger = logging.getLogger(__name__)
@@ -109,6 +109,7 @@ class RoutingService:
         enterprise_criticality: str = "standard",
         required_capabilities: Optional[List[str]] = None,
         top_n: int = 3,
+        provider_models: Optional[List[ModelCandidate]] = None,
     ) -> RoutingResult:
         """Route prompt through profiler and candidate filtering."""
         if not self.is_initialized:
@@ -122,6 +123,7 @@ class RoutingService:
                 enterprise_criticality=enterprise_criticality,
                 required_capabilities=required_capabilities,
                 allowed_model_ids=allowed_model_ids,
+                extra_models=provider_models,
             )
         else:
             # Fallback heuristic router

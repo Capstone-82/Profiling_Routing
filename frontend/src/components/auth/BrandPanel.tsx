@@ -140,16 +140,7 @@ export function BrandPanel() {
             <CheckCircle2 size={12} style={{ color: '#16A34A' }} />
             AWS Bedrock (Active V1)
           </span>
-          <span
-            style={{
-              fontSize: '11px', fontWeight: 600, color: '#8EA3BD',
-              background: '#F8FAFC', border: '1px solid #E2E8F0',
-              padding: '4px 10px', borderRadius: '6px',
-              display: 'inline-flex', alignItems: 'center', gap: '5px',
-            }}
-          >
-            Vertex AI (Soon)
-          </span>
+          {/* Vertex AI badge intentionally hidden while the GCP integration is paused. */}
           <span
             style={{
               fontSize: '11px', fontWeight: 600, color: '#8EA3BD',

@@ -251,9 +251,14 @@ class ModelRegistry:
 
         self.models: List[ModelCandidate] = []
         for m in data.get("models", []):
+            provider = m.get("provider", "unknown")
+            cloud_provider = m.get(
+                "cloud_provider",
+                "vertex-ai" if provider.lower() == "google" else "aws-bedrock",
+            )
             candidate = ModelCandidate(
                 model_id=m["model_id"],
-                provider=m.get("provider", "unknown"),
+                provider=provider,
                 generation=m.get("generation", "current"),
                 tier=m["tier"],
                 cost_in=float(m.get("cost_in") if m.get("cost_in") is not None else 0.0),
@@ -274,11 +279,26 @@ class ModelRegistry:
                 capability_tags=m.get("capability_tags", m.get("domain_strengths", [])),
                 latency_slo_ms=m.get("latency_slo_ms"),
                 availability_status=m.get("availability_status", "unknown"),
+                cloud_provider=cloud_provider,
+                region=m.get("region"),
+                display_name=m.get("display_name"),
             )
             self.models.append(candidate)
 
-    def get_models(self) -> List[ModelCandidate]:
-        return self.models
+    def get_models(self, extra_models: Optional[List[ModelCandidate]] = None) -> List[ModelCandidate]:
+        """Return registry models merged with verified provider discoveries.
+
+        Runtime discoveries override a static row with the same cloud provider
+        and router model ID. This keeps the maintained registry authoritative
+        for scoring defaults while allowing verified GCP models to participate
+        without changing the AWS catalog.
+        """
+        if not extra_models:
+            return self.models
+        merged = {(m.cloud_provider, m.model_id): m for m in self.models}
+        for model in extra_models:
+            merged[(model.cloud_provider, model.model_id)] = model
+        return list(merged.values())
 
 
 class ModelRouter:
@@ -323,6 +343,7 @@ class ModelRouter:
         required_capabilities: List[str],
         allowed_model_ids: Optional[List[str]] = None,
         relax_tier_ceilings: bool = False,
+        models: Optional[List[ModelCandidate]] = None,
     ) -> Tuple[List[ModelCandidate], Dict[str, str]]:
         rejections = {}
         survivors = []
@@ -332,7 +353,7 @@ class ModelRouter:
 
         allowed_set = set(allowed_model_ids) if allowed_model_ids is not None else None
 
-        for model in self.registry.get_models():
+        for model in models or self.registry.get_models():
             # Governance / candidate allow-list check
             if allowed_set is not None and model.model_id not in allowed_set:
                 rejections[model.model_id] = "not in governance allow-list or unavailable on provider"
@@ -542,6 +563,7 @@ class ModelRouter:
         enterprise_criticality: str = "standard",
         required_capabilities: Optional[List[str]] = None,
         allowed_model_ids: Optional[List[str]] = None,
+        extra_models: Optional[List[ModelCandidate]] = None,
     ) -> RoutingResult:
         profile = self.profiler.profile(prompt, max_tokens=max_tokens)
         resolved_tier, escalated, escalation_reason = self._resolve_tier(profile)
@@ -551,6 +573,7 @@ class ModelRouter:
             include_legacy,
             required_capabilities or [],
             allowed_model_ids=allowed_model_ids,
+            models=self.registry.get_models(extra_models),
         )
 
         # Graceful tier relaxation if no allowed models satisfy resolved_tier
@@ -562,6 +585,7 @@ class ModelRouter:
                 required_capabilities or [],
                 allowed_model_ids=allowed_model_ids,
                 relax_tier_ceilings=True,
+                models=self.registry.get_models(extra_models),
             )
         ranked = self._rank_weighted(survivors, profile, resolved_tier, enterprise_criticality) if survivors else []
 
@@ -579,6 +603,10 @@ class ModelRouter:
                     reasons=reasons,
                     routing_score=score["routing_score"],
                     score_breakdown=score,
+                    cloud_provider=model.cloud_provider,
+                    api_model_id=model.api_model_id or model.model_id,
+                    region=model.region,
+                    display_name=model.display_name,
                 )
             )
 

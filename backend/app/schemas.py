@@ -7,10 +7,15 @@ class ModelSchema(BaseModel):
     provider: str
     providerModelId: str
     contextWindow: Optional[str] = "200K tokens"
+    contextWindowTokens: Optional[int] = None
     category: Optional[str] = "General"
     inputModalities: Optional[List[str]] = []
     outputModalities: Optional[List[str]] = []
     responseStreamingSupported: Optional[bool] = False
+    capabilities: List[str] = Field(default_factory=list)
+    cloudProvider: str = "aws-bedrock"
+    region: Optional[str] = None
+    routerModelId: Optional[str] = None
 
 class ConnectionRequest(BaseModel):
     role_arn: str = Field(..., alias="roleArn", description="AWS IAM Role ARN pasted by user")
@@ -27,12 +32,82 @@ class ConnectionResponse(BaseModel):
     verifiedAt: Optional[str] = None
     lastSyncedAt: Optional[str] = None
 
+
+class GCPConnectionRequest(BaseModel):
+    project_id: Optional[str] = Field(None, alias="projectId")
+    region: Optional[str] = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class GCPConnectionResponse(BaseModel):
+    provider: str = "vertex-ai"
+    status: str  # 'not_connected' | 'pending' | 'verified' | 'failed'
+    projectId: Optional[str] = None
+    organizationId: Optional[str] = None
+    projectNumber: Optional[str] = None
+    region: Optional[str] = None
+    error: Optional[str] = None
+    availableModels: List[ModelSchema] = []
+    verifiedAt: Optional[str] = None
+    lastSyncedAt: Optional[str] = None
+
+
+class GCPProjectSchema(BaseModel):
+    projectId: str
+    displayName: Optional[str] = None
+    projectNumber: Optional[str] = None
+
+
+class GCPAuthorizationResponse(BaseModel):
+    provider: str = "vertex-ai"
+    status: str
+    authorizationUrl: str
+
 class GovernanceEvaluationSchema(BaseModel):
     rule_type: str
     passed: bool
     mode: str  # 'dry_run' | 'enforce'
     message: str
     details: Optional[Dict[str, Any]] = None
+
+class PIIFindingSchema(BaseModel):
+    entity_type: str
+    count: int
+    max_score: float
+
+class ToxicityFindingSchema(BaseModel):
+    category: str
+    score: float
+    count: int = 1
+
+class PromptInjectionFindingSchema(BaseModel):
+    category: str
+    score: float
+    label: str
+
+class HallucinationFindingSchema(BaseModel):
+    claim: str
+    status: str
+    confidence: float
+    explanation: str
+
+class HallucinationVerificationSchema(BaseModel):
+    status: str
+    confidence: float
+    explanation: str
+    findings: List[HallucinationFindingSchema] = []
+
+class ConcisenessFindingSchema(BaseModel):
+    code: str
+    message: str
+    actual: Optional[float] = None
+    allowed: Optional[float] = None
+
+class RacialBiasFindingSchema(BaseModel):
+    category: str
+    confidence: float
+    explanation: str
 
 class GovernanceRuleSchema(BaseModel):
     id: Optional[str] = None
@@ -46,8 +121,12 @@ class GovernanceRuleSchema(BaseModel):
 class PromptRequest(BaseModel):
     prompt: str
     guessed_bedrock_model_id: Optional[str] = None
+    guessed_model_id: Optional[str] = None
     max_tokens: Optional[int] = 1500
     retry_bedrock_model_id: Optional[str] = None
+    retry_model_id: Optional[str] = None
+    reference_context: Optional[List[str]] = None
+    requested_response_length: Optional[str] = None
 
 class DimensionBreakdown(BaseModel):
     d1_semantic_complexity: float
@@ -81,9 +160,14 @@ class ModelRecommendationSchema(BaseModel):
     domain_match_count: int
     reasons: List[str]
     routing_score: Optional[float] = None
+    cloud_provider: str = "aws-bedrock"
+    provider_model_id: Optional[str] = None
+    region: Optional[str] = None
 
 class UserGuessSchema(BaseModel):
-    bedrock_model_id: str
+    bedrock_model_id: Optional[str] = None
+    model_id: Optional[str] = None
+    cloud_provider: str = "aws-bedrock"
     display_name: Optional[str] = None
     matched_top_pick: bool
     insight: str
@@ -100,6 +184,33 @@ class ModelResponse(BaseModel):
     invocation_error: Optional[str] = None
     tokens_used: Optional[int] = None
     latency_ms: Optional[float] = None
+    pii_input_findings: List[PIIFindingSchema] = []
+    pii_output_findings: List[PIIFindingSchema] = []
+    pii_input_masked: bool = False
+    pii_output_masked: bool = False
+    toxicity_input_findings: List[ToxicityFindingSchema] = []
+    toxicity_output_findings: List[ToxicityFindingSchema] = []
+    toxicity_input_action: Optional[str] = None
+    toxicity_output_action: Optional[str] = None
+    prompt_injection_input_findings: List[PromptInjectionFindingSchema] = []
+    prompt_injection_input_action: Optional[str] = None
+    hallucination_status: Optional[str] = None
+    hallucination_confidence: Optional[float] = None
+    hallucination_explanation: Optional[str] = None
+    hallucination_findings: List[HallucinationFindingSchema] = []
+    hallucination_action: Optional[str] = None
+    conciseness_word_count: Optional[int] = None
+    conciseness_character_count: Optional[int] = None
+    conciseness_sentence_count: Optional[int] = None
+    conciseness_repetition_ratio: Optional[float] = None
+    conciseness_requested_length: Optional[str] = None
+    conciseness_findings: List[ConcisenessFindingSchema] = []
+    conciseness_action: Optional[str] = None
+    racial_bias_status: Optional[str] = None
+    racial_bias_confidence: Optional[float] = None
+    racial_bias_explanation: Optional[str] = None
+    racial_bias_findings: List[RacialBiasFindingSchema] = []
+    racial_bias_action: Optional[str] = None
 
 class ProfileOnlyResponse(BaseModel):
     profile: ProfileSummarySchema

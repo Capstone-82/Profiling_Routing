@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 from app.schemas import ModelSchema
+# GCP catalog support is retained for the paused Vertex AI phase.
 
 MAPPING_FILE = Path(__file__).parent / "routing" / "bedrock_model_mapping.json"
 
@@ -83,6 +84,11 @@ class ModelMappingService:
                 )
             )
         return results
+
+    def get_unified_catalog(self) -> List[ModelSchema]:
+        """Return only the active AWS catalog while Vertex AI is paused."""
+        # Re-enable the retained Vertex catalog merge here when the GCP phase resumes.
+        return self.get_allowed_catalog()
 
     def to_friendly_id(self, id_str: str) -> Optional[str]:
         """Maps any format of model ID (friendly, Bedrock provider ID, catalog ID) to canonical friendly ID."""
