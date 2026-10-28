@@ -51,10 +51,13 @@ from app.services.racial_bias_guardrail import (
     settings_from_config as racial_bias_settings_from_config,
 )
 from app.auth.supabase_auth import CurrentUser, get_current_user
+from app.services.review_queue_service import review_queue_service
+from app.services.analytics_service import analytics_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/prompt", tags=["Prompt Routing"])
+
 
 
 def _display_names() -> Dict[str, str]:
@@ -410,6 +413,33 @@ async def route_and_invoke_prompt(
                 prompt_injection_settings.action,
                 prompt_injection_scan.findings[0].score,
             )
+            if prompt_injection_settings.action == "REVIEW":
+                item = review_queue_service.add_item(
+                    org_id=user_id,
+                    guardrail="prompt_injection",
+                    prompt=prompt_text,
+                    findings=[
+                        {"category": f.category, "score": f.score, "label": f.label}
+                        for f in prompt_injection_scan.findings
+                    ],
+                    confidence=prompt_injection_scan.findings[0].score if prompt_injection_scan.findings else 0.85,
+                    severity="HIGH" if (prompt_injection_scan.findings and prompt_injection_scan.findings[0].score > 0.85) else "MEDIUM",
+                )
+                analytics_service.record_event(
+                    org_id=user_id,
+                    prompt=prompt_text,
+                    model_used=None,
+                    tokens_in=len(prompt_text.split()),
+                    tokens_out=0,
+                    cost_usd=0.0,
+                    baseline_cost_usd=0.0,
+                    status="REVIEW",
+                    guardrail_triggers=["prompt_injection"],
+                )
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Prompt flagged and placed in Human Review Queue (Item ID: {item.id}) pending compliance verification.",
+                )
             raise HTTPException(
                 status_code=403,
                 detail="Prompt blocked by the configured prompt injection policy.",
@@ -627,7 +657,34 @@ async def route_and_invoke_prompt(
                 len(hallucination_result.findings),
             )
             if hallucination_settings.action == "REVIEW":
-                raise HTTPException(status_code=502, detail="Response requires hallucination review; no review queue is configured.")
+                item = review_queue_service.add_item(
+                    org_id=user_id,
+                    guardrail="hallucination",
+                    prompt=prompt_text,
+                    reference_context=req.reference_context,
+                    model_intended=target.provider_model_id or target.model_id,
+                    findings=[
+                        {"claim": f.claim, "status": f.status, "confidence": f.confidence, "explanation": f.explanation}
+                        for f in hallucination_result.findings
+                    ],
+                    confidence=hallucination_result.confidence,
+                    severity="HIGH" if hallucination_result.status == "CONTRADICTED" else "MEDIUM",
+                )
+                analytics_service.record_event(
+                    org_id=user_id,
+                    prompt=prompt_text,
+                    model_used=target.provider_model_id or target.model_id,
+                    tokens_in=tokens_used or len(prompt_text.split()),
+                    tokens_out=0,
+                    cost_usd=target.estimated_cost_usd or 0.0,
+                    baseline_cost_usd=(target.estimated_cost_usd or 0.0) * 3.0,
+                    status="REVIEW",
+                    guardrail_triggers=["hallucination"],
+                )
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Response held in Human Review Queue (Item ID: {item.id}) pending evidence verification.",
+                )
             raise HTTPException(status_code=502, detail="Response blocked by the configured hallucination policy.")
         elif hallucination_result.findings:
             hallucination_action = hallucination_settings.action
@@ -683,7 +740,32 @@ async def route_and_invoke_prompt(
                 [finding.code for finding in conciseness_result.findings],
             )
             if conciseness_settings.action == "REVIEW":
-                raise HTTPException(status_code=502, detail="Response requires conciseness review; no review queue is configured.")
+                item = review_queue_service.add_item(
+                    org_id=user_id,
+                    guardrail="conciseness",
+                    prompt=prompt_text,
+                    model_intended=target.provider_model_id or target.model_id,
+                    findings=[
+                        {"code": f.code, "message": f.message, "actual": f.actual, "allowed": f.allowed}
+                        for f in conciseness_result.findings
+                    ],
+                    severity="LOW",
+                )
+                analytics_service.record_event(
+                    org_id=user_id,
+                    prompt=prompt_text,
+                    model_used=target.provider_model_id or target.model_id,
+                    tokens_in=tokens_used or len(prompt_text.split()),
+                    tokens_out=0,
+                    cost_usd=target.estimated_cost_usd or 0.0,
+                    baseline_cost_usd=(target.estimated_cost_usd or 0.0) * 3.0,
+                    status="REVIEW",
+                    guardrail_triggers=["conciseness"],
+                )
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Response held in Human Review Queue (Item ID: {item.id}) pending brevity authorization.",
+                )
             raise HTTPException(status_code=502, detail="Response blocked by the configured conciseness policy.")
         elif conciseness_result.detected:
             conciseness_action = conciseness_settings.action
@@ -740,7 +822,33 @@ async def route_and_invoke_prompt(
                 [finding.category for finding in racial_bias_result.findings],
             )
             if racial_bias_settings.action == "REVIEW":
-                raise HTTPException(status_code=502, detail="Response requires racial-bias review; no review queue is configured.")
+                item = review_queue_service.add_item(
+                    org_id=user_id,
+                    guardrail="racial_bias",
+                    prompt=prompt_text,
+                    model_intended=target.provider_model_id or target.model_id,
+                    findings=[
+                        {"category": f.category, "confidence": f.confidence, "explanation": f.explanation}
+                        for f in racial_bias_result.findings
+                    ],
+                    confidence=racial_bias_result.confidence,
+                    severity="HIGH",
+                )
+                analytics_service.record_event(
+                    org_id=user_id,
+                    prompt=prompt_text,
+                    model_used=target.provider_model_id or target.model_id,
+                    tokens_in=tokens_used or len(prompt_text.split()),
+                    tokens_out=0,
+                    cost_usd=target.estimated_cost_usd or 0.0,
+                    baseline_cost_usd=(target.estimated_cost_usd or 0.0) * 3.0,
+                    status="REVIEW",
+                    guardrail_triggers=["racial_bias"],
+                )
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Response held in Human Review Queue (Item ID: {item.id}) pending fairness evaluation.",
+                )
             raise HTTPException(status_code=502, detail="Response blocked by the configured racial-bias policy.")
         elif racial_bias_result.findings or racial_bias_result.status == "REVIEW_REQUIRED":
             racial_bias_action = racial_bias_settings.action
@@ -771,6 +879,36 @@ async def route_and_invoke_prompt(
             matched_top_pick=matched,
             insight=insight,
         )
+
+    # Record analytics for this prompt dispatch
+    active_triggers: List[str] = []
+    if input_scan.detected or output_scan.detected:
+        active_triggers.append("pii")
+    if toxicity_input_scan.detected or toxicity_output_scan.detected:
+        active_triggers.append("toxicity")
+    if prompt_injection_scan.detected:
+        active_triggers.append("prompt_injection")
+    if hallucination_result.findings:
+        active_triggers.append("hallucination")
+    if conciseness_result.detected:
+        active_triggers.append("conciseness")
+    if racial_bias_result.findings:
+        active_triggers.append("racial_bias")
+
+    dispatch_status = "MASKED" if (input_scan.changed or output_scan.changed) else "PASSED"
+    baseline_usd = (target.estimated_cost_usd or 0.001) * 3.25
+    analytics_service.record_event(
+        org_id=user_id,
+        prompt=prompt_text,
+        model_used=target.provider_model_id or target.model_id,
+        tokens_in=gov_result.estimated_input_tokens,
+        tokens_out=tokens_used or 250,
+        cost_usd=target.estimated_cost_usd or 0.0005,
+        baseline_cost_usd=baseline_usd,
+        status=dispatch_status,
+        guardrail_triggers=active_triggers,
+        latency_ms=latency_ms,
+    )
 
     return ModelResponse(
         text=text,

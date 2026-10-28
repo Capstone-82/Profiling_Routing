@@ -1,4 +1,12 @@
-import type { Connection, GCPProject, Model, ModelResponse, PromptRequest } from '../types';
+import type {
+  Connection,
+  GCPProject,
+  Model,
+  ModelResponse,
+  PromptRequest,
+  ReviewQueueItem,
+  GovernanceAnalytics,
+} from '../types';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api';
@@ -179,3 +187,53 @@ export async function sendPromptToBackend(req: PromptRequest, userId?: string): 
 
   return await res.json();
 }
+
+export async function fetchReviewQueue(
+  userId?: string,
+  status?: string,
+): Promise<ReviewQueueItem[]> {
+  try {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    const query = params.toString();
+    const res = await fetch(`${API_BASE}/governance/review-queue${query ? `?${query}` : ''}`, {
+      headers: await authHeaders({}, userId),
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function resolveReviewItem(
+  itemId: string,
+  status: 'APPROVED' | 'REJECTED',
+  notes?: string,
+  userId?: string,
+): Promise<ReviewQueueItem | null> {
+  try {
+    const res = await fetch(`${API_BASE}/governance/review-queue/${itemId}/resolve`, {
+      method: 'POST',
+      headers: await authHeaders({ 'Content-Type': 'application/json' }, userId),
+      body: JSON.stringify({ status, resolution_notes: notes }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchGovernanceAnalytics(userId?: string): Promise<GovernanceAnalytics | null> {
+  try {
+    const res = await fetch(`${API_BASE}/governance/analytics`, {
+      headers: await authHeaders({}, userId),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+

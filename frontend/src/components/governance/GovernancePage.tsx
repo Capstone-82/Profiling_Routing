@@ -13,6 +13,8 @@ import {
 import type { Model, ModelResponse, ModelRecommendation, Connection } from '../../types';
 import { getAvailableModels, getConnection, sendPrompt } from '../../services/mock/mockService';
 import { fetchGovernanceRules, saveGovernanceRule } from '../../services/apiService';
+import { ReviewQueueView } from './ReviewQueueView';
+import { AnalyticsView } from './AnalyticsView';
 
 interface GovernanceRule {
   rule_type: string;
@@ -64,6 +66,9 @@ const RANK_LABEL: Record<number, string> = { 1: 'Primary Choice', 2: 'Standby Fa
 export function GovernancePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  // Active top-level governance view tab
+  const [activeTab, setActiveTab] = useState<'PLAYGROUND' | 'REVIEW_QUEUE' | 'ANALYTICS'>('PLAYGROUND');
 
   // Connection state
   const [connection, setConnection] = useState<Connection>({ provider: 'aws-bedrock', status: 'not_connected' });
@@ -339,8 +344,94 @@ export function GovernancePage() {
           </div>
         )}
 
-        {/* ── Main Two-Column Layout ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.15fr', gap: '24px', alignItems: 'start' }}>
+        {/* ── Governance View Tabs ── */}
+        <div style={{ display: 'flex', gap: '8px', borderBottom: '2px solid #E2E8F0', marginBottom: '24px' }}>
+          <button
+            type="button"
+            onClick={() => setActiveTab('PLAYGROUND')}
+            style={{
+              padding: '10px 18px',
+              fontSize: '13.5px',
+              fontWeight: 700,
+              background: 'none',
+              border: 'none',
+              borderBottom: activeTab === 'PLAYGROUND' ? '3px solid #0066FF' : '3px solid transparent',
+              color: activeTab === 'PLAYGROUND' ? '#0066FF' : '#64748B',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '-2px',
+              transition: 'all 0.2s',
+            }}
+          >
+            <Sparkles size={16} /> Model Routing & Playground
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('REVIEW_QUEUE')}
+            style={{
+              padding: '10px 18px',
+              fontSize: '13.5px',
+              fontWeight: 700,
+              background: 'none',
+              border: 'none',
+              borderBottom: activeTab === 'REVIEW_QUEUE' ? '3px solid #0066FF' : '3px solid transparent',
+              color: activeTab === 'REVIEW_QUEUE' ? '#0066FF' : '#64748B',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '-2px',
+              transition: 'all 0.2s',
+            }}
+          >
+            <AlertTriangle size={16} /> Human Review Queue
+            <span
+              style={{
+                background: '#FEF3C7',
+                color: '#92400E',
+                fontSize: '11px',
+                padding: '1px 8px',
+                borderRadius: '999px',
+                fontWeight: 800,
+              }}
+            >
+              Action Items
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('ANALYTICS')}
+            style={{
+              padding: '10px 18px',
+              fontSize: '13.5px',
+              fontWeight: 700,
+              background: 'none',
+              border: 'none',
+              borderBottom: activeTab === 'ANALYTICS' ? '3px solid #0066FF' : '3px solid transparent',
+              color: activeTab === 'ANALYTICS' ? '#0066FF' : '#64748B',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '-2px',
+              transition: 'all 0.2s',
+            }}
+          >
+            <BarChart2 size={16} /> Safety & Cost Analytics
+          </button>
+        </div>
+
+        {/* ── Tab Views ── */}
+        {activeTab === 'REVIEW_QUEUE' && <ReviewQueueView />}
+        {activeTab === 'ANALYTICS' && <AnalyticsView />}
+
+        {activeTab === 'PLAYGROUND' && (
+          /* ── Main Two-Column Layout ── */
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.15fr', gap: '24px', alignItems: 'start' }}>
 
           {/* ════════ LEFT COLUMN: Prompt Input & Profiler Breakdown ════════ */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -786,7 +877,8 @@ export function GovernancePage() {
             </div>
           </div>
         </div>
-      </main>
+      )}
+    </main>
 
       {/* ════════ GUARDRAILS CONFIGURATION MODAL ════════ */}
       {guardrailsOpen && (

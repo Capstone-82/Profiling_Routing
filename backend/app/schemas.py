@@ -219,3 +219,46 @@ class ProfileOnlyResponse(BaseModel):
     rejections: Dict[str, str] = {}
     governance_evaluations: List[GovernanceEvaluationSchema] = []
     warnings: List[str] = []
+
+class ReviewQueueItemSchema(BaseModel):
+    id: str
+    org_id: str
+    created_at: str
+    status: str = "PENDING"  # PENDING, APPROVED, REJECTED
+    guardrail: str  # prompt_injection, hallucination, racial_bias, conciseness, toxicity, pii
+    action: str = "REVIEW"
+    prompt: str
+    reference_context: Optional[List[str]] = None
+    model_intended: Optional[str] = None
+    findings: List[Dict[str, Any]] = []
+    confidence: Optional[float] = None
+    severity: str = "MEDIUM"  # LOW, MEDIUM, HIGH
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[str] = None
+    resolution_notes: Optional[str] = None
+
+class ReviewResolveRequest(BaseModel):
+    status: str  # APPROVED or REJECTED
+    resolution_notes: Optional[str] = None
+
+class GuardrailMetricSummary(BaseModel):
+    guardrail: str
+    trigger_count: int
+    percentage: float
+
+class GovernanceAnalyticsSchema(BaseModel):
+    total_requests: int
+    passed_requests: int
+    blocked_requests: int
+    masked_requests: int
+    review_requests: int
+    block_rate_percentage: float
+    total_input_tokens: int
+    total_output_tokens: int
+    total_cost_usd: float
+    baseline_cost_usd: float
+    cost_saved_usd: float
+    savings_percentage: float
+    guardrail_breakdown: List[GuardrailMetricSummary]
+    recent_activity: List[Dict[str, Any]]
+

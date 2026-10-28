@@ -196,3 +196,60 @@ export interface RacialBiasFinding {
   confidence: number;
   explanation: string;
 }
+
+// ─── Human Review Queue & Safety Analytics ────────
+export interface ReviewQueueItem {
+  id: string;
+  org_id: string;
+  created_at: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  guardrail: 'prompt_injection' | 'hallucination' | 'racial_bias' | 'conciseness' | 'toxicity' | 'pii' | string;
+  action: 'REVIEW' | string;
+  prompt: string;
+  reference_context?: string[] | null;
+  model_intended?: string | null;
+  findings: Array<Record<string, unknown>>;
+  confidence?: number | null;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH';
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  resolution_notes?: string | null;
+}
+
+export interface GuardrailMetricSummary {
+  guardrail: string;
+  trigger_count: number;
+  percentage: number;
+}
+
+export interface RecentActivityEvent {
+  id: string;
+  timestamp: string;
+  prompt_snippet: string;
+  model_used: string;
+  tokens_in: number;
+  tokens_out: number;
+  cost_usd: number;
+  baseline_cost_usd: number;
+  status: 'PASSED' | 'BLOCKED' | 'MASKED' | 'REVIEW';
+  guardrail_triggers: string[];
+  latency_ms: number;
+}
+
+export interface GovernanceAnalytics {
+  total_requests: number;
+  passed_requests: number;
+  blocked_requests: number;
+  masked_requests: number;
+  review_requests: number;
+  block_rate_percentage: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_cost_usd: number;
+  baseline_cost_usd: number;
+  cost_saved_usd: number;
+  savings_percentage: number;
+  guardrail_breakdown: GuardrailMetricSummary[];
+  recent_activity: RecentActivityEvent[];
+}
+

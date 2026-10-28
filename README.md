@@ -116,10 +116,11 @@ Supabase identity -> AWS connection -> input PII/toxicity/injection checks
 ```
 
 Output policies never log complete prompts or responses by default. `FLAG`
-returns structured metadata, `BLOCK` prevents the response, `REVIEW` blocks
-because no human review queue exists, and `REGENERATE` is limited to one
-retry followed by re-evaluation. Detector confidence is advisory and does
-not prove factual correctness, toxicity, or discrimination.
+returns structured metadata, `BLOCK` prevents the response, `REVIEW` routes
+the request to the interactive Human Review Queue for compliance verification,
+and `REGENERATE` is limited to one retry followed by re-evaluation. Detector
+confidence is advisory and does not prove factual correctness, toxicity, or
+discrimination.
 
 ## Getting Started
 
@@ -282,6 +283,9 @@ CREATE POLICY "Allow backend all access governance_rules"
 | `GET` | `/api/governance/rules` | Get configured governance rules for the org |
 | `POST` | `/api/governance/rules` | Upsert a governance rule (`allow_list` \| `context_window` \| `throttle` \| `pii` \| `toxicity` \| `prompt_injection` \| `hallucination` \| `conciseness` \| `racial_bias`) |
 | `GET` | `/api/governance/defaults` | Get default rule templates |
+| `GET` | `/api/governance/review-queue` | List pending / resolved compliance review items |
+| `POST` | `/api/governance/review-queue/{item_id}/resolve` | Approve or Reject a flagged item in the review queue |
+| `GET` | `/api/governance/analytics` | Safety threat enforcement and cost savings metrics |
 | `GET` | `/health` | Health check |
 
 ## Running Tests
