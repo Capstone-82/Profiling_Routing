@@ -21,11 +21,28 @@ async def get_connection(current_user: CurrentUser = Depends(get_current_user)):
         return supabase_conn
 
     # Fallback to local memory dictionary per user
-    return USER_CONNECTIONS.get(user_id, ConnectionResponse(
+    if user_id in USER_CONNECTIONS:
+        return USER_CONNECTIONS[user_id]
+
+    # For demo users or default development tenant, auto-provide verified connection with Bedrock catalog
+    if user_id.startswith("demo") or "demo" in user_id.lower() or user_id == "00000000-0000-0000-0000-000000000001":
+        from app.services.model_mapping_service import model_mapping_service
+        catalog_models = model_mapping_service.get_unified_catalog()
+        demo_conn = ConnectionResponse(
+            provider="aws-bedrock",
+            status="verified",
+            roleArn="arn:aws:iam::381061952352:role/BedrockRouterExecutionRole",
+            availableModels=catalog_models,
+            verifiedAt="2026-10-30T00:00:00Z"
+        )
+        USER_CONNECTIONS[user_id] = demo_conn
+        return demo_conn
+
+    return ConnectionResponse(
         provider="aws-bedrock",
         status="not_connected",
         availableModels=[]
-    ))
+    )
 
 @router.post("/test", response_model=ConnectionResponse)
 async def test_connection(
