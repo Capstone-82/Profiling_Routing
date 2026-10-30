@@ -138,6 +138,42 @@ DEFAULT_GOVERNANCE_RULES = [
                 *[m.providerModelId for m in model_mapping_service.get_allowed_catalog()],
             ],
         }
+    },
+    {
+        "rule_type": "pii",
+        "mode": "enforce",
+        "config": {
+            "enabled": True,
+            "scan_input": True,
+            "scan_output": True,
+            "action": "MASK",
+            "entities": ["EMAIL_ADDRESS", "PHONE_NUMBER", "PERSON", "ADDRESS", "IN_AADHAAR", "IN_PAN"],
+            "failure_mode": "BLOCK",
+        }
+    },
+    {
+        "rule_type": "toxicity",
+        "mode": "enforce",
+        "config": {
+            "enabled": True,
+            "scan_input": True,
+            "scan_output": True,
+            "action": "FLAG",
+            "score_threshold": 0.70,
+            "categories": ["toxicity", "severe_toxicity", "insult", "threat", "identity_hate", "obscene", "profanity"],
+            "failure_mode": "BLOCK",
+        }
+    },
+    {
+        "rule_type": "prompt_injection",
+        "mode": "enforce",
+        "config": {
+            "enabled": True,
+            "scan_input": True,
+            "action": "FLAG",
+            "score_threshold": 0.80,
+            "failure_mode": "BLOCK",
+        }
     }
 ]
 
@@ -183,25 +219,46 @@ class GovernanceService:
         return default_rules
 
     async def get_pii_config(self, org_id: str) -> Dict[str, Any]:
-        """Return the tenant PII policy; disabled by default until configured."""
+        """Return the tenant PII policy; active by default."""
         for rule in await self.get_rules_for_org(org_id):
             if rule.rule_type == "pii":
                 return dict(rule.config or {})
-        return {"enabled": False}
+        return {
+            "enabled": True,
+            "scan_input": True,
+            "scan_output": True,
+            "action": "MASK",
+            "entities": ["EMAIL_ADDRESS", "PHONE_NUMBER", "PERSON", "ADDRESS", "IN_AADHAAR", "IN_PAN"],
+            "failure_mode": "BLOCK",
+        }
 
     async def get_toxicity_config(self, org_id: str) -> Dict[str, Any]:
-        """Return the tenant toxicity policy; disabled by default."""
+        """Return the tenant toxicity policy; active by default."""
         for rule in await self.get_rules_for_org(org_id):
             if rule.rule_type == "toxicity":
                 return dict(rule.config or {})
-        return {"enabled": False}
+        return {
+            "enabled": True,
+            "scan_input": True,
+            "scan_output": True,
+            "action": "FLAG",
+            "score_threshold": 0.70,
+            "categories": ["toxicity", "severe_toxicity", "insult", "threat", "identity_hate", "obscene", "profanity"],
+            "failure_mode": "BLOCK",
+        }
 
     async def get_prompt_injection_config(self, org_id: str) -> Dict[str, Any]:
-        """Return the tenant prompt-injection policy; disabled by default."""
+        """Return the tenant prompt-injection policy; active by default."""
         for rule in await self.get_rules_for_org(org_id):
             if rule.rule_type == "prompt_injection":
                 return dict(rule.config or {})
-        return {"enabled": False}
+        return {
+            "enabled": True,
+            "scan_input": True,
+            "action": "FLAG",
+            "score_threshold": 0.80,
+            "failure_mode": "BLOCK",
+        }
 
     async def get_hallucination_config(self, org_id: str) -> Dict[str, Any]:
         """Return the tenant hallucination policy; disabled by default."""

@@ -98,7 +98,11 @@ def verify_aws_bedrock_connection(
     try:
         # Step 1: Assume Role via STS (unless stubbed/passed in for testing)
         if sts_client is None:
-            sts_client = boto3.client("sts", region_name=region)
+            sts_kwargs = {}
+            if settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY:
+                sts_kwargs["aws_access_key_id"] = settings.AWS_ACCESS_KEY_ID
+                sts_kwargs["aws_secret_access_key"] = settings.AWS_SECRET_ACCESS_KEY
+            sts_client = boto3.client("sts", region_name=region, **sts_kwargs)
             
         session_name = f"BedrockConnTest-{external_id[:8]}" if external_id else "BedrockConnTest"
         

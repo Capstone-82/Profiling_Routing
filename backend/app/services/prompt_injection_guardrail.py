@@ -108,6 +108,27 @@ class PromptInjectionGuardrail:
         settings = settings_from_config(config)
         if not settings.enabled:
             return PromptInjectionScanResult(text=text, findings=tuple())
+        import re
+        # Fast high-precision heuristic signatures for injection and jailbreak
+        heuristic_patterns = [
+            r"(?i)\bignore\s+(all\s+)?(previous|prior|above)\s+(instructions|directives|prompts|rules)\b",
+            r"(?i)\b(system\s+prompt|jailbreak|DAN\s+mode|developer\s+mode\s+active|bypass\s+safety)\b",
+            r"(?i)\b(disregard\s+(all\s+)?rules|output\s+(your\s+)?system\s+prompt)\b",
+            r"(?i)\b(pretend\s+you\s+have\s+no\s+(restrictions|rules|ethics))\b",
+            r"(?i)\b(reveal\s+(your\s+)?internal\s+instructions)\b",
+        ]
+        for pattern in heuristic_patterns:
+            if re.search(pattern, text):
+                return PromptInjectionScanResult(
+                    text=text,
+                    findings=(
+                        PromptInjectionFinding(
+                            category="prompt_injection",
+                            score=0.98,
+                            label="INJECTION",
+                        ),
+                    ),
+                )
         try:
             provider = self._provider
             if isinstance(provider, TransformersPromptInjectionProvider):

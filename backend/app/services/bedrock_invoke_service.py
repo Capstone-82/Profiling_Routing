@@ -23,23 +23,44 @@ class BedrockInvokeService:
         region: Optional[str] = None
     ):
         target_region = region or settings.AWS_REGION
-        sts = boto3.client("sts", region_name=target_region)
+        base_kwargs = {}
+        if settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY:
+            base_kwargs["aws_access_key_id"] = settings.AWS_ACCESS_KEY_ID
+            base_kwargs["aws_secret_access_key"] = settings.AWS_SECRET_ACCESS_KEY
+
+        if not role_arn or role_arn.lower() in ("direct", "default", "none"):
+            return boto3.client("bedrock-runtime", region_name=target_region, **base_kwargs)
+
+        sts = boto3.client("sts", region_name=target_region, **base_kwargs)
         session_name = f"AIRouteDispatch-{external_id[:8]}" if external_id else "AIRouteDispatch"
 
-        assumed = sts.assume_role(
-            RoleArn=role_arn,
-            RoleSessionName=session_name,
-            ExternalId=external_id
-        )
-        creds = assumed["Credentials"]
+        try:
+            assumed = sts.assume_role(
+                RoleArn=role_arn,
+                RoleSessionName=session_name,
+                ExternalId=external_id
+            )
+            creds = assumed["Credentials"]
 
-        return boto3.client(
-            "bedrock-runtime",
-            region_name=target_region,
-            aws_access_key_id=creds["AccessKeyId"],
-            aws_secret_access_key=creds["SecretAccessKey"],
-            aws_session_token=creds["SessionToken"],
-        )
+            return boto3.client(
+                "bedrock-runtime",
+                region_name=target_region,
+                aws_access_key_id=creds["AccessKeyId"],
+                aws_secret_access_key=creds["SecretAccessKey"],
+                aws_session_token=creds["SessionToken"],
+            )
+        except ClientError as e:
+            err_code = e.response.get("Error", {}).get("Code", "")
+            if err_code in ("AccessDenied", "AccessDeniedException", "InvalidClientTokenId"):
+                logger.warning(
+                    f"STS AssumeRole failed ({err_code}) for role '{role_arn}'. "
+                    "Falling back to direct host Bedrock credentials."
+                )
+                try:
+                    return boto3.client("bedrock-runtime", region_name=target_region, **base_kwargs)
+                except Exception as fallback_err:
+                    logger.error(f"Fallback to direct host Bedrock credentials failed: {fallback_err}")
+            raise
 
     def _format_request_body(
         self,

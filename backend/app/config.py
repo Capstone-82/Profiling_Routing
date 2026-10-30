@@ -2,11 +2,13 @@ import os
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
-load_dotenv()
+load_dotenv(override=True)
 
 class Settings(BaseModel):
     AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
-    AWS_TRUSTED_ACCOUNT_ID: str = os.getenv("AWS_TRUSTED_ACCOUNT_ID", "108839616732")
+    AWS_ACCESS_KEY_ID: str = os.getenv("AWS_ACCESS_KEY_ID", "")
+    AWS_SECRET_ACCESS_KEY: str = os.getenv("AWS_SECRET_ACCESS_KEY", "")
+    AWS_TRUSTED_ACCOUNT_ID: str = os.getenv("AWS_TRUSTED_ACCOUNT_ID", "381061952352")
     GCP_PROJECT_ID: str = os.getenv("GCP_PROJECT_ID", "")
     GCP_REGION: str = os.getenv("GCP_REGION", "us-central1")
     GCP_OAUTH_CLIENT_ID: str = os.getenv("GCP_OAUTH_CLIENT_ID", "")

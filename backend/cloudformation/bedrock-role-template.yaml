@@ -7,7 +7,7 @@ Parameters:
     Description: 'User External ID (Supabase Auth UUID) required for IAM Role assumption security'
   TrustedAccountId:
     Type: String
-    Default: '108839616732'
+    Default: '381061952352'
     Description: 'The AWS Account ID of the AI Routing Platform server'
 
 Resources:
